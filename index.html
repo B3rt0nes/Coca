@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <meta name="description" content="Co.Ca. — Proposte di Staff Scout. Crea, salva e confronta le assegnazioni dei capi alle unità della tua Comunità Capi.">
+  <meta name="theme-color" content="#0a0e1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>Co.Ca. — Proposte di Staff</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/board.css">
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"></script>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- ═══════════════════════════════════
+         LOGIN VIEW
+         ═══════════════════════════════════ -->
+    <section class="view login-view" id="login-view">
+      <div class="login-card">
+        <div class="login-card__icon">🃏</div>
+        <h1 class="login-card__title">Co.Ca.</h1>
+        <p class="login-card__subtitle">Proposte di Staff — Comunità Capi</p>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-username">Il tuo nome</label>
+            <input
+              type="text"
+              class="form-input"
+              id="login-username"
+              placeholder="Es. Mario Rossi"
+              autocomplete="name"
+              required
+              minlength="2"
+            >
+          </div>
+          <button type="submit" class="btn btn--primary btn--full" id="btn-login">
+            🎯 Entra
+          </button>
+        </form>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════
+         DASHBOARD VIEW
+         ═══════════════════════════════════ -->
+    <section class="view" id="dashboard-view">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="app-header__logo">
+          <span class="app-header__logo-icon">🃏</span>
+          Co.Ca.
+        </div>
+        <div class="app-header__user">
+          <span id="header-username" class="app-header__username"></span>
+          <button class="btn btn--small btn--secondary" id="btn-logout" title="Esci">
+            ↩ Esci
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Content -->
+      <div class="dashboard-content">
+        <div class="dashboard-grid">
+
+          <!-- Proposals Section -->
+          <div class="dashboard-section dashboard-section--proposals">
+            <div class="dashboard-section__header">
+              <h2 class="dashboard-section__title">
+                📋 Proposte di Staff
+              </h2>
+              <button class="btn btn--primary" id="btn-new-proposal">
+                ✚ Nuova Proposta
+              </button>
+            </div>
+            <div class="proposal-list" id="proposals-list">
+              <div class="proposal-list__empty">
+                <div class="proposal-list__empty-icon">📋</div>
+                <p>Caricamento proposte...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Deck Management Section -->
+          <div class="dashboard-section">
+            <div class="dashboard-section__header">
+              <h2 class="dashboard-section__title">
+                🃏 Mazzo Capi <span id="deck-count" style="font-weight: 400; font-size: 0.85rem; color: var(--text-muted);"></span>
+              </h2>
+              <div style="display: flex; gap: 8px;">
+                <select id="dashboard-deck-sort" class="form-input" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: var(--bg-input);">
+                  <option value="name">Alfabetico</option>
+                  <option value="foca">Livello Fo.Ca.</option>
+                  <option value="sex">Sesso</option>
+                </select>
+                <button class="btn btn--green btn--small" id="btn-add-capo">
+                  ✚ Aggiungi
+                </button>
+              </div>
+            </div>
+            <div class="deck-preview" id="dashboard-deck">
+              <div class="deck-drawer__empty" style="grid-column: 1/-1;">
+                Caricamento mazzo...
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════
+         BOARD VIEW (Tabellone Drag & Drop)
+         ═══════════════════════════════════ -->
+    <section class="view board-view" id="board-view">
+
+      <!-- Board Header -->
+      <header class="board-header">
+        <div class="board-header__left">
+          <button class="board-header__back" id="btn-board-back" title="Torna alla Dashboard">
+            ← Indietro
+          </button>
+          <input
+            type="text"
+            class="board-title-input"
+            id="board-title"
+            placeholder="Titolo proposta..."
+            maxlength="60"
+          >
+        </div>
+        <div class="board-header__right">
+          <button class="btn btn--danger btn--small hidden" id="btn-delete-proposal" title="Elimina proposta">
+            🗑
+          </button>
+          <button class="btn btn--primary" id="btn-save-proposal">
+            💾 Salva Proposta
+          </button>
+        </div>
+      </header>
+
+      <!-- Board Content (scrollable) -->
+      <div class="board-content">
+        <div class="board-grid" id="board-grid">
+          <!-- Branch sections are rendered dynamically by board.js -->
+        </div>
+      </div>
+
+      <!-- Deck Drawer (Bottom Sheet Mobile / Sidebar Desktop) -->
+      <aside class="deck-drawer deck-drawer--collapsed" id="deck-drawer">
+        <div class="deck-drawer__handle" id="drawer-handle">
+          <div class="deck-drawer__handle-bar"></div>
+        </div>
+        <div class="deck-drawer__header">
+          <h3 class="deck-drawer__title">
+            🃏 Mazzo
+            <span class="deck-drawer__count" id="drawer-deck-count"></span>
+          </h3>
+        </div>
+        <div class="deck-drawer__search" style="display: flex; gap: 8px;">
+          <input
+            type="text"
+            class="deck-search-input"
+            id="drawer-search"
+            placeholder="Cerca capo..."
+            style="flex: 1;"
+          >
+          <select id="drawer-deck-sort" class="form-input" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: var(--bg-input);">
+            <option value="name">Alfabetico</option>
+            <option value="foca">Livello Fo.Ca.</option>
+            <option value="sex">Sesso</option>
+          </select>
+        </div>
+        <div class="deck-drawer__cards" id="deck-cards">
+          <!-- Cards rendered by deck.js -->
+        </div>
+      </aside>
+
+    </section>
+
+  </div>
+
+  <!-- App Script (ES Module) -->
+  <script type="module" src="js/app.js"></script>
+
+  <!-- Hidden utility class -->
+  <style>
+    .hidden { display: none !important; }
+  </style>
+
+</body>
+</html>

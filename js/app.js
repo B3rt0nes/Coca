@@ -1,0 +1,557 @@
+// ============================================
+// CO.CA. — Main Application
+// SPA Router, State Management, Event Handling
+// ============================================
+
+import { getUsername, setUsername, logout, isLoggedIn } from './auth.js';
+import { addCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
+import { renderDeck, renderDeckPreview } from './deck.js';
+import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS } from './board.js';
+import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
+import { validateProposal } from './validation.js';
+import { showToast, showModal, hideModal, showConfirm, showWarningConfirm, showAddCapoModal, setLoading } from './ui.js';
+
+// ══════════════════════════════════════════
+// APPLICATION STATE
+// ══════════════════════════════════════════
+
+const AppState = {
+  capi: [],
+  proposals: [],
+  currentView: 'login',
+  currentProposalId: null,
+  isReadonly: false,
+  unsubscribeCapi: null,
+  unsubscribeProposals: null,
+  deckFilter: '',
+  drawerCollapsed: true
+};
+
+
+// ══════════════════════════════════════════
+// SPA ROUTER
+// ══════════════════════════════════════════
+
+function navigate(hash) {
+  window.location.hash = hash;
+}
+
+function handleRoute() {
+  const hash = window.location.hash || '#login';
+  const parts = hash.split('/');
+  const route = parts[0];
+  const param = parts[1];
+
+  // Hide all views
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+  // Clean up previous view
+  destroyDragDrop();
+
+  if (!isLoggedIn() && route !== '#login') {
+    navigate('#login');
+    return;
+  }
+
+  switch (route) {
+    case '#login':
+      showView('login-view');
+      break;
+
+    case '#dashboard':
+      if (!isLoggedIn()) {
+        navigate('#login');
+        return;
+      }
+      showView('dashboard-view');
+      updateDashboardHeader();
+      loadDashboard();
+      break;
+
+    case '#proposta':
+      if (!isLoggedIn()) {
+        navigate('#login');
+        return;
+      }
+      if (param === 'new') {
+        AppState.isReadonly = false;
+        AppState.currentProposalId = null;
+        showView('board-view');
+        initBoardView();
+      } else if (param) {
+        // View existing proposal
+        showView('board-view');
+        loadProposalView(param);
+      }
+      break;
+
+    default:
+      navigate(isLoggedIn() ? '#dashboard' : '#login');
+  }
+}
+
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const view = document.getElementById(viewId);
+  if (view) {
+    view.classList.add('active');
+  }
+}
+
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+
+function setupLogin() {
+  const form = document.getElementById('login-form');
+  if (!form) return;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('login-username');
+    const username = input.value.trim();
+
+    if (!username) {
+      showToast('Inserisci un nome utente', 'error');
+      return;
+    }
+
+    if (username.length < 2) {
+      showToast('Il nome utente deve avere almeno 2 caratteri', 'error');
+      return;
+    }
+
+    setUsername(username);
+    showToast(`Benvenuto, ${username}! 🎉`, 'success');
+    navigate('#dashboard');
+  });
+}
+
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+
+function updateDashboardHeader() {
+  const usernameEl = document.getElementById('header-username');
+  if (usernameEl) {
+    usernameEl.textContent = getUsername();
+  }
+}
+
+async function loadDashboard() {
+  // Subscribe to real-time capi updates
+  if (AppState.unsubscribeCapi) AppState.unsubscribeCapi();
+  AppState.unsubscribeCapi = onCapiChange((capi) => {
+    AppState.capi = capi;
+    renderDashboardDeck();
+  });
+
+  // Subscribe to real-time proposal updates
+  if (AppState.unsubscribeProposals) AppState.unsubscribeProposals();
+  AppState.unsubscribeProposals = onProposalsChange((proposals) => {
+    AppState.proposals = proposals;
+    renderDashboardProposals();
+  });
+}
+
+function renderDashboardDeck() {
+  const container = document.getElementById('dashboard-deck');
+  if (!container) return;
+
+  const countEl = document.getElementById('deck-count');
+  if (countEl) {
+    countEl.textContent = `(${AppState.capi.length})`;
+  }
+
+  const sortVal = document.getElementById('dashboard-deck-sort')?.value || 'name';
+
+  renderDeckPreview(container, AppState.capi, async (capoId, name) => {
+    const confirmed = await showConfirm(
+      'Elimina Capo',
+      `Sei sicuro di voler eliminare <strong>${name}</strong> dal mazzo?<br><br>Questa azione non può essere annullata.`
+    );
+    if (confirmed) {
+      try {
+        await deleteCapo(capoId);
+        showToast(`${name} rimosso dal mazzo`, 'success');
+      } catch (err) {
+        showToast('Errore nell\'eliminazione del capo', 'error');
+        console.error(err);
+      }
+    }
+  });
+}
+
+function renderDashboardProposals() {
+  const container = document.getElementById('proposals-list');
+  if (!container) return;
+
+  if (AppState.proposals.length === 0) {
+    container.innerHTML = `
+      <div class="proposal-list__empty">
+        <div class="proposal-list__empty-icon">📋</div>
+        <p>Nessuna proposta salvata.<br>Crea la prima proposta!</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = AppState.proposals.map(p => {
+    const date = p.createdAt
+      ? new Date(p.createdAt.seconds * 1000).toLocaleDateString('it-IT', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        })
+      : '...';
+
+    const isOwn = p.autore === getUsername();
+
+    return `
+      <div class="proposal-item" data-proposal-id="${p.id}" data-readonly="${!isOwn}">
+        <div class="proposal-item__info">
+          <div class="proposal-item__title">${p.titolo || 'Proposta senza titolo'}</div>
+          <div class="proposal-item__meta">
+            <span class="proposal-item__author">${p.autore}</span>
+            <span>•</span>
+            <span>${date}</span>
+            ${isOwn ? '<span>• ✏️ Tua</span>' : '<span>• 👁️ Sola lettura</span>'}
+          </div>
+        </div>
+        <span class="proposal-item__arrow">→</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function setupDashboardEvents() {
+  // Add capo button
+  document.getElementById('btn-add-capo')?.addEventListener('click', () => {
+    showAddCapoModal(async (data) => {
+      try {
+        await addCapo(data);
+        showToast(`${data.nome} ${data.cognome} aggiunto al mazzo! 🃏`, 'success');
+      } catch (err) {
+        showToast('Errore nel salvataggio del capo', 'error');
+        console.error(err);
+      }
+    });
+  });
+
+  // Sort dropdown
+  document.getElementById('dashboard-deck-sort')?.addEventListener('change', () => {
+    renderDashboardDeck();
+  });
+
+  // Create proposal button
+  document.getElementById('btn-new-proposal')?.addEventListener('click', () => {
+    if (AppState.capi.length === 0) {
+      showToast('Aggiungi almeno un capo al mazzo prima di creare una proposta', 'warning');
+      return;
+    }
+    navigate('#proposta/new');
+  });
+
+  // Logout button
+  document.getElementById('btn-logout')?.addEventListener('click', () => {
+    logout();
+    showToast('Arrivederci! 👋', 'info');
+    navigate('#login');
+  });
+
+  // Proposal item clicks (event delegation)
+  document.getElementById('proposals-list')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.proposal-item');
+    if (!item) return;
+    const proposalId = item.dataset.proposalId;
+    navigate(`#proposta/${proposalId}`);
+  });
+}
+
+
+// ══════════════════════════════════════════
+// BOARD VIEW (Create/Edit Proposal)
+// ══════════════════════════════════════════
+
+function initBoardView() {
+  const boardView = document.getElementById('board-view');
+  boardView.classList.remove('board-view--readonly');
+
+  // Set title input
+  const titleInput = document.getElementById('board-title');
+  if (titleInput) {
+    titleInput.value = '';
+    titleInput.disabled = false;
+  }
+
+  // Show save/deck controls
+  document.getElementById('btn-save-proposal')?.classList.remove('hidden');
+  document.getElementById('deck-drawer')?.classList.remove('hidden');
+
+  // Render the board
+  const boardGrid = document.getElementById('board-grid');
+  renderBoard(boardGrid);
+
+  // Render deck in drawer
+  renderDeckInDrawer();
+
+  // Initialize drag & drop
+  initDragDrop(AppState.capi, onBoardChange);
+
+  // Setup drawer toggle
+  setupDrawer();
+}
+
+async function loadProposalView(proposalId) {
+  setLoading(true);
+
+  try {
+    // Ensure we have capi data
+    if (AppState.capi.length === 0) {
+      AppState.capi = await getCapi();
+    }
+
+    const proposal = await getProposal(proposalId);
+    if (!proposal) {
+      showToast('Proposta non trovata', 'error');
+      navigate('#dashboard');
+      return;
+    }
+
+    AppState.currentProposalId = proposalId;
+    const isOwn = proposal.autore === getUsername();
+    AppState.isReadonly = !isOwn;
+
+    const boardView = document.getElementById('board-view');
+    boardView.classList.toggle('board-view--readonly', !isOwn);
+
+    // Set title
+    const titleInput = document.getElementById('board-title');
+    if (titleInput) {
+      titleInput.value = proposal.titolo || '';
+      titleInput.disabled = !isOwn;
+    }
+
+    // Hide save button and deck if readonly
+    if (!isOwn) {
+      document.getElementById('btn-save-proposal')?.classList.add('hidden');
+      document.getElementById('deck-drawer')?.classList.add('hidden');
+    } else {
+      document.getElementById('btn-save-proposal')?.classList.remove('hidden');
+      document.getElementById('deck-drawer')?.classList.remove('hidden');
+    }
+
+    // Render the board
+    const boardGrid = document.getElementById('board-grid');
+    renderBoard(boardGrid);
+
+    // Load saved assignments
+    if (proposal.assegnazioni) {
+      loadAssignments(proposal.assegnazioni, AppState.capi, !isOwn);
+    }
+
+    if (isOwn) {
+      // Enable editing
+      renderDeckInDrawer();
+      initDragDrop(AppState.capi, onBoardChange);
+      reattachRoleListeners(onBoardChange);
+      setupDrawer();
+    }
+
+  } catch (err) {
+    console.error('Error loading proposal:', err);
+    showToast('Errore nel caricamento della proposta', 'error');
+    navigate('#dashboard');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderDeckInDrawer() {
+  const container = document.getElementById('deck-cards');
+  if (!container) return;
+
+  const sortVal = document.getElementById('drawer-deck-sort')?.value || 'name';
+  renderDeck(container, AppState.capi, AppState.deckFilter, sortVal);
+
+  // Update deck count
+  const countEl = document.getElementById('drawer-deck-count');
+  if (countEl) {
+    countEl.textContent = `(${AppState.capi.length})`;
+  }
+}
+
+function onBoardChange() {
+  // Update multi-incarico highlights
+  updateMultiIncarico();
+}
+
+function setupDrawer() {
+  const drawer = document.getElementById('deck-drawer');
+  const handle = document.getElementById('drawer-handle');
+  const searchInput = document.getElementById('drawer-search');
+
+  if (!drawer || !handle) return;
+
+  // Start collapsed on mobile
+  if (window.innerWidth < 1024) {
+    drawer.classList.add('deck-drawer--collapsed');
+    AppState.drawerCollapsed = true;
+  } else {
+    drawer.classList.remove('deck-drawer--collapsed');
+    AppState.drawerCollapsed = false;
+  }
+
+  // Toggle drawer (prevent duplicate listeners)
+  if (!drawer.dataset.listenerAttached) {
+    const toggleDrawer = () => {
+      AppState.drawerCollapsed = !AppState.drawerCollapsed;
+      drawer.classList.toggle('deck-drawer--collapsed', AppState.drawerCollapsed);
+    };
+    
+    handle.addEventListener('click', toggleDrawer);
+    
+    const header = document.querySelector('.deck-drawer__header');
+    if (header) {
+      header.addEventListener('click', toggleDrawer);
+      header.style.cursor = 'pointer';
+    }
+    
+    drawer.dataset.listenerAttached = 'true';
+  }
+
+  // Search
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.addEventListener('input', (e) => {
+      AppState.deckFilter = e.target.value;
+      renderDeckInDrawer();
+      // Re-init sortable on deck since DOM changed
+      initDragDrop(AppState.capi, onBoardChange);
+    });
+  }
+
+  // Sort
+  const sortSelect = document.getElementById('drawer-deck-sort');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', () => {
+      renderDeckInDrawer();
+      initDragDrop(AppState.capi, onBoardChange);
+    });
+  }
+}
+
+function setupBoardEvents() {
+  // Back button
+  document.getElementById('btn-board-back')?.addEventListener('click', () => {
+    destroyDragDrop();
+    navigate('#dashboard');
+  });
+
+  // Save proposal button
+  document.getElementById('btn-save-proposal')?.addEventListener('click', async () => {
+    await handleSaveProposal();
+  });
+
+  // Delete proposal button
+  document.getElementById('btn-delete-proposal')?.addEventListener('click', async () => {
+    if (!AppState.currentProposalId) return;
+
+    const confirmed = await showConfirm(
+      'Elimina Proposta',
+      'Sei sicuro di voler eliminare questa proposta?<br>Questa azione non può essere annullata.'
+    );
+
+    if (confirmed) {
+      try {
+        await deleteProposal(AppState.currentProposalId);
+        showToast('Proposta eliminata', 'success');
+        navigate('#dashboard');
+      } catch (err) {
+        showToast('Errore nell\'eliminazione', 'error');
+        console.error(err);
+      }
+    }
+  });
+}
+
+async function handleSaveProposal() {
+  const titleInput = document.getElementById('board-title');
+  const titolo = titleInput ? titleInput.value.trim() : '';
+
+  if (!titolo) {
+    showToast('Inserisci un titolo per la proposta', 'warning');
+    titleInput?.focus();
+    return;
+  }
+
+  // Collect assignments from the board
+  const assegnazioni = collectAssignments(AppState.capi);
+
+  // Validate
+  const warnings = validateProposal(assegnazioni, AppState.capi);
+
+  if (warnings.length > 0) {
+    const warningList = warnings.map(w => `<li>${w}</li>`).join('');
+    const shouldSave = await showWarningConfirm(
+      '⚠️ Attenzione — Validazione',
+      `<p>La proposta presenta i seguenti problemi:</p><ul>${warningList}</ul><p>Vuoi salvare comunque?</p>`
+    );
+
+    if (!shouldSave) return;
+  }
+
+  // Save to Firestore
+  setLoading(true);
+
+  try {
+    const proposalData = {
+      autore: getUsername(),
+      titolo,
+      assegnazioni,
+      warnings: warnings.length > 0 ? warnings : []
+    };
+
+    if (AppState.currentProposalId) {
+      // Update existing
+      await import('./db.js').then(db => db.updateProposal(AppState.currentProposalId, proposalData));
+      showToast('Proposta aggiornata! ✅', 'success');
+    } else {
+      // Create new
+      const id = await saveProposal(proposalData);
+      AppState.currentProposalId = id;
+      showToast('Proposta salvata! 🎉', 'success');
+    }
+
+    navigate('#dashboard');
+  } catch (err) {
+    console.error('Error saving proposal:', err);
+    showToast('Errore nel salvataggio della proposta', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+
+// ══════════════════════════════════════════
+// INITIALIZATION
+// ══════════════════════════════════════════
+
+function init() {
+  setupLogin();
+  setupDashboardEvents();
+  setupBoardEvents();
+
+  // Listen for route changes
+  window.addEventListener('hashchange', handleRoute);
+
+  // Handle initial route
+  handleRoute();
+}
+
+// Start app when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

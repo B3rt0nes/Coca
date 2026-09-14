@@ -1,0 +1,410 @@
+/* ============================================
+   CO.CA. — Board & Drop Zone Styles
+   Game board layout, branch sections, deck drawer
+   ============================================ */
+
+/* ══════════════════════════════════════════
+   BOARD VIEW LAYOUT
+   ══════════════════════════════════════════ */
+.board-view.active,
+#board-view.active {
+  display: flex !important;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: var(--sp-3);
+}
+
+.board-header__left {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.board-header__back {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.board-header__back:hover {
+  color: var(--accent-gold);
+  background: var(--bg-glass);
+}
+
+.board-header__title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.board-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.board-title-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-3);
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1rem;
+  width: 200px;
+  transition: border-color var(--duration-fast);
+}
+
+.board-title-input:focus {
+  border-color: var(--accent-blue);
+}
+
+/* ══════════════════════════════════════════
+   BOARD CONTENT (scrollable area)
+   ══════════════════════════════════════════ */
+.board-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  padding-bottom: 280px; /* space for drawer */
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+
+/* ══════════════════════════════════════════
+   BRANCH SECTION
+   ══════════════════════════════════════════ */
+.branch-section {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.branch-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.branch-header__icon {
+  font-size: 1.2rem;
+}
+
+/* Branch color variants */
+.branch-section--lc .branch-header {
+  background: var(--branch-lc-bg);
+  color: var(--branch-lc);
+  border-bottom: 1px solid rgba(243, 156, 18, 0.2);
+}
+
+.branch-section--eg .branch-header {
+  background: var(--branch-eg-bg);
+  color: var(--branch-eg);
+  border-bottom: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.branch-section--rs .branch-header {
+  background: var(--branch-rs-bg);
+  color: var(--branch-rs);
+  border-bottom: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.branch-section--coca .branch-header {
+  background: var(--branch-coca-bg);
+  color: var(--branch-coca);
+  border-bottom: 1px solid rgba(155, 89, 182, 0.2);
+}
+
+.branch-units {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+
+/* ══════════════════════════════════════════
+   DROP ZONE (Unit)
+   ══════════════════════════════════════════ */
+.drop-zone {
+  background: var(--bg-primary);
+  padding: var(--sp-4);
+  min-height: 120px;
+  transition: all var(--duration-normal) var(--ease-out);
+  position: relative;
+}
+
+.drop-zone__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+
+.drop-zone__name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.drop-zone__count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-glass);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-full);
+}
+
+.drop-zone__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 60px;
+  position: relative;
+}
+
+/* Empty state with dashed border */
+.drop-zone__cards:empty::before {
+  content: 'Trascina qui i capi';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* Drop zone active (during drag) */
+.drop-zone__cards.sortable-drag-over,
+.drop-zone__cards.drop-active {
+  background: rgba(46, 204, 113, 0.04);
+  border-radius: var(--radius-md);
+}
+
+.drop-zone__cards.sortable-drag-over::before,
+.drop-zone__cards.drop-active::before {
+  border-color: var(--accent-green) !important;
+  color: var(--accent-green) !important;
+  opacity: 1;
+  animation: dropPulse 1.5s ease-in-out infinite;
+  content: '⬇ Rilascia qui';
+}
+
+@keyframes dropPulse {
+  0%, 100% { border-color: rgba(46, 204, 113, 0.3); }
+  50%      { border-color: rgba(46, 204, 113, 0.7); }
+}
+
+/* Validation indicators on drop zone */
+.drop-zone--warning .drop-zone__header {
+  color: var(--accent-gold);
+}
+
+.drop-zone--warning {
+  box-shadow: inset 0 0 0 1px rgba(240, 192, 64, 0.2);
+}
+
+.drop-zone--valid .drop-zone__header {
+  color: var(--accent-green);
+}
+
+.drop-zone__validation {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: 0.7rem;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-full);
+  margin-top: var(--sp-2);
+}
+
+.drop-zone__validation--ok {
+  color: var(--accent-green);
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.drop-zone__validation--warn {
+  color: var(--accent-gold);
+  background: rgba(240, 192, 64, 0.1);
+}
+
+/* Read-only mode */
+.board-view--readonly .drop-zone__cards:empty::before {
+  content: 'Nessun capo assegnato';
+}
+
+.board-view--readonly .card {
+  cursor: default;
+}
+
+.board-view--readonly .card__remove-btn {
+  display: none;
+}
+
+.board-view--readonly .card__role-dropdown {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+
+/* ══════════════════════════════════════════
+   DECK DRAWER (Bottom Sheet Mobile / Sidebar Desktop)
+   ══════════════════════════════════════════ */
+
+/* Hide drawer when board view is not active
+   (position:fixed escapes parent display:none) */
+.view:not(.active) .deck-drawer,
+#board-view:not(.active) .deck-drawer {
+  display: none !important;
+}
+
+.deck-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-light);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  z-index: var(--z-drawer);
+  transition: transform var(--duration-slow) var(--ease-out);
+  max-height: 70vh;
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.deck-drawer--collapsed {
+  transform: translateY(calc(100% - 56px));
+}
+
+.deck-drawer__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2) var(--sp-4);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.deck-drawer__handle-bar {
+  width: 40px;
+  height: 4px;
+  background: var(--text-muted);
+  border-radius: var(--radius-full);
+  opacity: 0.4;
+}
+
+.deck-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.deck-drawer__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.deck-drawer__count {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.deck-drawer__search {
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.deck-search-input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  padding-left: var(--sp-8);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  transition: border-color var(--duration-fast);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23505a72' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+}
+
+.deck-search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.deck-drawer__cards {
+  padding: var(--sp-3) var(--sp-4);
+  overflow-y: auto;
+  max-height: calc(70vh - 140px);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--sp-2);
+}
+
+.deck-drawer__cards .card {
+  font-size: 0.85rem;
+}
+
+.deck-drawer__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Deck drawer hidden in readonly mode ── */
+.board-view--readonly .deck-drawer {
+  display: none !important;
+}
+
+.board-view--readonly .board-content {
+  padding-bottom: var(--sp-6);
+}

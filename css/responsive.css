@@ -1,0 +1,238 @@
+/* ============================================
+   CO.CA. — Responsive Styles
+   Mobile-first breakpoints
+   ============================================ */
+
+/* ══════════════════════════════════════════
+   TABLET (≥ 768px)
+   ══════════════════════════════════════════ */
+@media (min-width: 768px) {
+
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 1.75rem; }
+
+  /* Dashboard grid: 2 columns */
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dashboard-section--proposals {
+    grid-column: 1 / -1;
+  }
+
+  /* Board grid: 2 columns */
+  .board-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .branch-section--coca {
+    grid-column: 1 / -1;
+  }
+
+  .branch-units {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Form layout */
+  .add-capo-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+  }
+
+  /* Deck drawer grid */
+  .deck-drawer__cards {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  /* Toast positioning */
+  .toast-container {
+    top: var(--sp-6);
+    right: var(--sp-6);
+  }
+
+  .toast {
+    max-width: 400px;
+  }
+
+  /* Board title input wider */
+  .board-title-input {
+    width: 300px;
+  }
+}
+
+
+/* ══════════════════════════════════════════
+   DESKTOP (≥ 1024px)
+   ══════════════════════════════════════════ */
+@media (min-width: 1024px) {
+
+  /* Dashboard layout */
+  .dashboard-content {
+    padding: var(--sp-8) var(--sp-6);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+
+  .dashboard-section--proposals {
+    grid-column: auto;
+  }
+
+  /* Board view: sidebar deck */
+  .board-view.active,
+  #board-view.active {
+    display: grid !important;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .board-header {
+    grid-column: 1 / -1;
+  }
+
+  .board-content {
+    grid-column: 1 / 2;
+    min-height: 0;
+    padding-bottom: var(--sp-6);
+    overflow-y: auto;
+  }
+
+  .board-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Deck as sidebar */
+  .deck-drawer {
+    grid-column: 2 / 3;
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100%;
+    min-height: 0;
+    border-top: none;
+    border-left: 1px solid var(--border-light);
+    border-radius: 0;
+    max-height: none;
+    box-shadow: -4px 0 32px rgba(0, 0, 0, 0.3);
+    transform: none !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .deck-drawer--collapsed {
+    transform: none !important;
+  }
+
+  .deck-drawer__handle {
+    display: none;
+  }
+
+  .deck-drawer__cards {
+    max-height: none;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Wider modals */
+  .modal {
+    max-width: 560px;
+  }
+}
+
+
+/* ══════════════════════════════════════════
+   WIDE DESKTOP (≥ 1440px)
+   ══════════════════════════════════════════ */
+@media (min-width: 1440px) {
+
+  .dashboard-content {
+    padding: var(--sp-10) var(--sp-8);
+  }
+
+  .deck-drawer {
+    width: 320px;
+  }
+
+  .deck-drawer__cards {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-2);
+  }
+
+  .board-grid {
+    gap: var(--sp-6);
+  }
+}
+
+
+/* ══════════════════════════════════════════
+   SMALL MOBILE (≤ 480px)
+   ══════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  html {
+    font-size: 15px;
+  }
+
+  .app-header {
+    padding: var(--sp-3);
+  }
+
+  .app-header__logo {
+    font-size: 1.1rem;
+  }
+
+  .board-header {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .board-title-input {
+    width: 100%;
+    order: 3;
+  }
+
+  .board-header__right {
+    order: 2;
+  }
+
+  /* Smaller cards in deck */
+  .deck-drawer__cards {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .checkbox-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Modal full width */
+  .modal {
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+    margin: var(--sp-3);
+  }
+
+  .modal__actions {
+    flex-direction: column;
+  }
+
+  .modal__actions .btn {
+    width: 100%;
+  }
+
+  /* Login card */
+  .login-card {
+    padding: var(--sp-8) var(--sp-5);
+  }
+}
