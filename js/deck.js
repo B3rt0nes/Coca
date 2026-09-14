@@ -146,21 +146,23 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name', assign
   filtered = sortCapi(filtered, sortBy);
 
   const availableCapi = filtered.filter(c => !assignedIds.has(c.id));
-  const assignedCapi = filtered.filter(c => assignedIds.has(c.id));
 
-  if (availableCapi.length === 0 && assignedCapi.length === 0) {
+  if (availableCapi.length === 0) {
+    const allAssigned = capi.length > 0 && capi.every(c => assignedIds.has(c.id));
     container.innerHTML = `
       <div class="deck-drawer__empty">
         ${capi.length === 0
           ? '🃏 Il mazzo è vuoto. Aggiungi dei capi dalla Dashboard!'
-          : '🔍 Nessun capo trovato per questa ricerca.'
+          : allAssigned
+            ? '✅ Tutti i capi sono stati assegnati!'
+            : '🔍 Nessun capo trovato per questa ricerca.'
         }
       </div>
     `;
     return;
   }
 
-  // Render available capi
+  // Render only available (unassigned) capi
   availableCapi.forEach(capo => {
     const card = createCardElement(capo);
     card.addEventListener('click', () => {
@@ -171,45 +173,16 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name', assign
     }
     container.appendChild(card);
   });
-
-  // Render assigned capi with a divider
-  if (assignedCapi.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'deck-drawer__divider';
-    divider.innerHTML = `<span>Già assegnati (${assignedCapi.length})</span>`;
-    // We want the divider to span the full grid width
-    divider.style.gridColumn = '1 / -1';
-    divider.style.textAlign = 'center';
-    divider.style.padding = 'var(--sp-4) 0 var(--sp-2)';
-    divider.style.color = 'var(--text-muted)';
-    divider.style.fontSize = '0.9rem';
-    divider.style.borderBottom = '1px solid var(--border-light)';
-    divider.style.marginBottom = 'var(--sp-2)';
-    
-    container.appendChild(divider);
-
-    assignedCapi.forEach(capo => {
-      const card = createCardElement(capo);
-      card.classList.add('card--assigned');
-      card.addEventListener('click', () => {
-        if (window.selectCapo) window.selectCapo(capo.id);
-      });
-      if (window.getSelectedCapoId && window.getSelectedCapoId() === capo.id) {
-        card.classList.add('card--selected');
-      }
-      container.appendChild(card);
-    });
-  }
 }
 
 /**
- * Render deck preview on dashboard (with delete buttons)
+ * Render deck preview on dashboard (with edit buttons)
  * @param {HTMLElement} container
  * @param {Array} capi
- * @param {Function} onDelete - callback(capoId)
+ * @param {Function} onEdit - callback(capo)
  * @param {string} sortBy - Sort order (name, foca, sex)
  */
-export function renderDeckPreview(container, capi, onDelete, sortBy = 'name') {
+export function renderDeckPreview(container, capi, onEdit, sortBy = 'name') {
   container.innerHTML = '';
 
   let sorted = sortCapi(capi, sortBy);
@@ -225,21 +198,20 @@ export function renderDeckPreview(container, capi, onDelete, sortBy = 'name') {
 
   sorted.forEach(capo => {
     const card = createCardElement(capo);
-    // Add delete button for dashboard management
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'card__remove-btn';
-    deleteBtn.title = 'Elimina capo';
-    deleteBtn.textContent = '✕';
-    deleteBtn.style.position = 'absolute';
-    deleteBtn.style.top = '8px';
-    deleteBtn.style.right = '8px';
-    deleteBtn.addEventListener('click', (e) => {
+    // Add edit button for dashboard management
+    const editBtn = document.createElement('button');
+    editBtn.className = 'card__remove-btn'; // Reusing this class for styling
+    editBtn.title = 'Modifica capo';
+    editBtn.textContent = '✎';
+    editBtn.style.position = 'absolute';
+    editBtn.style.top = '8px';
+    editBtn.style.right = '8px';
+    editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const name = capo.soprannome ? `${capo.soprannome} (${capo.nome} ${capo.cognome})` : `${capo.nome} ${capo.cognome}`;
-      onDelete(capo.id, name);
+      onEdit(capo);
     });
     card.style.position = 'relative';
-    card.appendChild(deleteBtn);
+    card.appendChild(editBtn);
     container.appendChild(card);
   });
 }

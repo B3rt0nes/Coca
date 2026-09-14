@@ -20,16 +20,8 @@
     grid-column: 1 / -1;
   }
 
-  /* Board grid: 2 columns */
-  .board-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .branch-section--coca .branch-units {
-    grid-template-columns: 1fr;
-  }
-
-  .branch-units {
+  /* Year body: 2 columns so branches sit side by side */
+  .year-body {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -102,8 +94,12 @@
     overflow-y: auto;
   }
 
-  .board-grid {
+  /* Branch units in 2 columns on desktop */
+  .branch-units {
     grid-template-columns: 1fr 1fr;
+  }
+  .branch-units > .drop-zone:only-child {
+    grid-column: 1 / -1;
   }
 
   /* Deck as sidebar */

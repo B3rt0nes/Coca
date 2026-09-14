@@ -171,15 +171,20 @@ export function showWarningConfirm(title, message) {
 // ══════════════════════════════════════════
 
 /**
- * Show the "Aggiungi Capo" form modal
+ * Show the "Aggiungi Capo" or "Modifica Capo" form modal
  * @param {Function} onSubmit - Called with form data object
+ * @param {Object} [capoToEdit] - Optional capo object to edit
  */
-export function showAddCapoModal(onSubmit) {
+export function showAddCapoModal(onSubmit, capoToEdit = null) {
   const overlay = ensureModalOverlay();
+  
+  const isEditing = !!capoToEdit;
+  const titleText = isEditing ? '🃏 Modifica Capo' : '🃏 Aggiungi Capo al Mazzo';
+  const btnText = isEditing ? '✓ Salva Modifiche' : '✓ Aggiungi al Mazzo';
 
   overlay.innerHTML = `
     <div class="modal" style="max-width: 560px;">
-      <h3 class="modal__title">🃏 Aggiungi Capo al Mazzo</h3>
+      <h3 class="modal__title">${titleText}</h3>
       <form class="add-capo-form" id="add-capo-form">
 
         <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -233,41 +238,41 @@ export function showAddCapoModal(onSubmit) {
           <label>Altri Incarichi extra-unità</label>
           <div class="checkbox-grid">
             <label class="checkbox-option">
-              <input type="checkbox" name="capo-incarichi" value="Segretario">
+              <input type="checkbox" name="capo-incarichi" value="IABZ">
               <span class="checkbox-mark"></span>
-              Segretario
+              IABZ
             </label>
             <label class="checkbox-option">
-              <input type="checkbox" name="capo-incarichi" value="Tesoriere">
+              <input type="checkbox" name="capo-incarichi" value="RDZ">
               <span class="checkbox-mark"></span>
-              Tesoriere
+              RDZ
             </label>
             <label class="checkbox-option">
-              <input type="checkbox" name="capo-incarichi" value="Magazziniere">
+              <input type="checkbox" name="capo-incarichi" value="Consigliere Generale">
               <span class="checkbox-mark"></span>
-              Magazziniere
+              Consigliere Generale
             </label>
             <label class="checkbox-option">
-              <input type="checkbox" name="capo-incarichi" value="Incaricato Sede">
+              <input type="checkbox" name="capo-incarichi" value="Eventi per Ragazzi">
               <span class="checkbox-mark"></span>
-              Inc. Sede
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="capo-incarichi" value="Incaricato Zona">
-              <span class="checkbox-mark"></span>
-              Inc. Zona
+              Eventi per Ragazzi (PO, CdS, CdC, EPPPI, ROSS)
             </label>
             <label class="checkbox-option">
               <input type="checkbox" name="capo-incarichi" value="Formatore">
               <span class="checkbox-mark"></span>
               Formatore
             </label>
+            <label class="checkbox-option">
+              <input type="checkbox" name="capo-incarichi" value="Tesoriere">
+              <span class="checkbox-mark"></span>
+              Tesoriere
+            </label>
           </div>
         </div>
 
         <div class="modal__actions">
           <button type="button" class="btn btn--secondary" id="capo-cancel">Annulla</button>
-          <button type="submit" class="btn btn--green">✓ Aggiungi al Mazzo</button>
+          <button type="submit" class="btn btn--green">${btnText}</button>
         </div>
       </form>
     </div>
@@ -279,6 +284,32 @@ export function showAddCapoModal(onSubmit) {
   focaSelect.addEventListener('change', () => {
     cfmGroup.classList.toggle('visible', focaSelect.value === 'CFM');
   });
+  
+  // Populate form if editing
+  if (isEditing) {
+    overlay.querySelector('#capo-nome').value = capoToEdit.nome || '';
+    overlay.querySelector('#capo-cognome').value = capoToEdit.cognome || '';
+    overlay.querySelector('#capo-soprannome').value = capoToEdit.soprannome || '';
+    
+    if (capoToEdit.sesso) {
+      const radio = overlay.querySelector(`input[name="capo-sesso"][value="${capoToEdit.sesso}"]`);
+      if (radio) radio.checked = true;
+    }
+    
+    if (capoToEdit.livelloFoca) {
+      focaSelect.value = capoToEdit.livelloFoca;
+      cfmGroup.classList.toggle('visible', focaSelect.value === 'CFM');
+    }
+    
+    overlay.querySelector('#capo-cfm-detail').value = capoToEdit.cfmDettaglio || '';
+    
+    if (capoToEdit.altriIncarichi && Array.isArray(capoToEdit.altriIncarichi)) {
+      capoToEdit.altriIncarichi.forEach(incarico => {
+        const cb = overlay.querySelector(`input[name="capo-incarichi"][value="${incarico}"]`);
+        if (cb) cb.checked = true;
+      });
+    }
+  }
 
   // Cancel button
   overlay.querySelector('#capo-cancel').addEventListener('click', hideModal);

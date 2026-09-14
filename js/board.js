@@ -15,10 +15,10 @@ export const UNITS = {
     branch: 'LC',
     icon: '🐺',
     roles: [
-      { value: 'CB', label: 'Capo Branco (CB)' },
-      { value: 'ACB', label: 'Aiuto Capo Branco (ACB)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CB', label: 'CB - Capo Branco' },
+      { value: 'ACB', label: 'ACB - Aiuto Capo Branco' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['CB']
   },
@@ -27,10 +27,10 @@ export const UNITS = {
     branch: 'LC',
     icon: '🌸',
     roles: [
-      { value: 'CC', label: 'Capo Cerchio (CC)' },
-      { value: 'ACC', label: 'Aiuto Capo Cerchio (ACC)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CC', label: 'CC - Capo Cerchio' },
+      { value: 'ACC', label: 'ACC - Aiuto Capo Cerchio' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['CC']
   },
@@ -39,10 +39,10 @@ export const UNITS = {
     branch: 'EG',
     icon: '☀️',
     roles: [
-      { value: 'CR', label: 'Capo Reparto (CR)' },
-      { value: 'ACR', label: 'Aiuto Capo Reparto (ACR)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CR', label: 'CR - Capo Reparto' },
+      { value: 'ACR', label: 'ACR - Aiuto Capo Reparto' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['CR']
   },
@@ -51,10 +51,10 @@ export const UNITS = {
     branch: 'EG',
     icon: '🌙',
     roles: [
-      { value: 'CR', label: 'Capo Reparto (CR)' },
-      { value: 'ACR', label: 'Aiuto Capo Reparto (ACR)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CR', label: 'CR - Capo Reparto' },
+      { value: 'ACR', label: 'ACR - Aiuto Capo Reparto' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['CR']
   },
@@ -63,9 +63,9 @@ export const UNITS = {
     branch: 'RS',
     icon: '🧭',
     roles: [
-      { value: 'MdN', label: 'Maestro dei Novizi (MdN)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'MdN', label: 'MdN - Maestro dei Novizi' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['MdN']
   },
@@ -74,10 +74,10 @@ export const UNITS = {
     branch: 'RS',
     icon: '🔥',
     roles: [
-      { value: 'CC/CF', label: 'Capo Clan/Fuoco (CC/CF)' },
-      { value: 'ACC/ACF', label: 'Aiuto Capo Clan/Fuoco (ACC/ACF)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CC/CF', label: 'CC/CF - Capo Clan/Fuoco' },
+      { value: 'ACC/ACF', label: 'ACC/ACF - Aiuto Capo Clan/Fuoco' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: ['CC/CF']
   },
@@ -86,12 +86,11 @@ export const UNITS = {
     branch: 'COCA',
     icon: '🏛️',
     roles: [
-      { value: 'CG', label: 'Capo Gruppo (CG)' },
-      { value: 'ACG', label: 'Aiuto Capo Gruppo (ACG)' },
-      { value: 'CD', label: 'Capo a disposizione' },
-      { value: 'AA', label: 'A supporto del gruppo (AA)' },
-      { value: 'AE', label: 'Assistente Ecclesiastico (AE)' },
-      { value: 'AS', label: 'Animatore Spirituale (AS)' }
+      { value: 'CG', label: 'CG - Capo Gruppo' },
+      { value: 'ACG', label: 'ACG - Aiuto Capo Gruppo' },
+      { value: 'AA', label: 'AA - A supporto del gruppo' },
+      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
+      { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
     mainRoles: [] // No main role validation for CoCa
   }
@@ -215,7 +214,7 @@ export function renderBoard(container, years = [{ label: 'Anno 1' }]) {
       const branchUnits = branchSec.querySelector('.branch-units');
       branchHeader.addEventListener('click', () => {
         const isHidden = branchUnits.style.display === 'none';
-        branchUnits.style.display = isHidden ? 'flex' : 'none'; // Branch units is flex in css
+        branchUnits.style.display = isHidden ? '' : 'none';
         branchHeader.querySelector('.branch-toggle').textContent = isHidden ? '▼' : '▶';
       });
 

@@ -7,6 +7,8 @@ import { UNITS, createRoleSelect, updateUnitCount, updateMultiIncarico } from '.
 
 // Store Sortable instances for cleanup
 let sortableInstances = [];
+// Store board change callback for remove handler
+let _onBoardChangeCallback = null;
 
 /**
  * Initialize drag & drop for the board
@@ -14,6 +16,9 @@ let sortableInstances = [];
  * @param {Function} onBoardChange - Called when any drop zone changes
  */
 export function initDragDrop(capi, onBoardChange) {
+  // Store callback for remove handler
+  _onBoardChangeCallback = onBoardChange;
+
   // Clean up existing instances
   destroyDragDrop();
 
@@ -204,9 +209,8 @@ function handleRemoveClick(e) {
     if (unitId && yearIndex) updateUnitCount(unitId, yearIndex);
     updateMultiIncarico(document.querySelectorAll('.year-section').length);
     
-    // Trigger board change so UI and assignments are synced
-    const event = new Event('change');
-    document.dispatchEvent(event);
+    // Trigger board change so deck re-syncs immediately
+    if (_onBoardChangeCallback) _onBoardChangeCallback();
   }, 200);
 }
 

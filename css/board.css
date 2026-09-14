@@ -128,11 +128,14 @@
 }
 
 @media (min-width: 992px) {
+  .board-grid {
+    max-width: 1600px;
+  }
   .year-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
   .branch-units {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
   }
 }
 

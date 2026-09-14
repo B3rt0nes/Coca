@@ -4,7 +4,7 @@
 // ============================================
 
 import { getUsername, setUsername, logout, isLoggedIn } from './auth.js';
-import { addCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
+import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
 import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
 import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect } from './board.js';
 import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
@@ -175,21 +175,17 @@ function renderDashboardDeck() {
 
   const sortVal = document.getElementById('dashboard-deck-sort')?.value || 'name';
 
-  renderDeckPreview(container, realCapi, async (capoId, name) => {
-    const confirmed = await showConfirm(
-      'Elimina Capo',
-      `Sei sicuro di voler eliminare <strong>${name}</strong> dal mazzo?<br><br>Questa azione non può essere annullata.`
-    );
-    if (confirmed) {
+  renderDeckPreview(container, realCapi, (capo) => {
+    showAddCapoModal(async (updatedData) => {
       try {
-        await deleteCapo(capoId);
-        showToast(`${name} rimosso dal mazzo`, 'success');
+        await updateCapo(capo.id, updatedData);
+        showToast(`${updatedData.nome} ${updatedData.cognome} aggiornato! ✏️`, 'success');
       } catch (err) {
-        showToast('Errore nell\'eliminazione del capo', 'error');
+        showToast('Errore nell\'aggiornamento del capo', 'error');
         console.error(err);
       }
-    }
-  });
+    }, capo);
+  }, sortVal);
 }
 
 function renderDashboardProposals() {
@@ -425,10 +421,11 @@ function renderDeckInDrawer() {
   const sortVal = document.getElementById('drawer-deck-sort')?.value || 'name';
   renderDeck(container, AppState.capi, AppState.deckFilter, sortVal, assignedIds);
 
-  // Update deck count
+  // Update deck count (show available / total)
   const countEl = document.getElementById('drawer-deck-count');
   if (countEl) {
-    countEl.textContent = `(${AppState.capi.length})`;
+    const available = AppState.capi.filter(c => !assignedIds.has(c.id)).length;
+    countEl.textContent = `(${available}/${AppState.capi.length})`;
   }
 }
 
