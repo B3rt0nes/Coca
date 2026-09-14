@@ -6,7 +6,7 @@
 import { getUsername, setUsername, logout, isLoggedIn } from './auth.js';
 import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
 import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
-import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect } from './board.js';
+import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect, getYearLabel } from './board.js';
 import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
 import { validateProposal } from './validation.js';
 import { showToast, showModal, hideModal, showConfirm, showWarningConfirm, showAddCapoModal, setLoading } from './ui.js';
@@ -25,7 +25,7 @@ const AppState = {
   unsubscribeProposals: null,
   deckFilter: '',
   drawerCollapsed: true,
-  years: [{ label: 'Anno 1', units: {} }]
+  years: [{ label: getYearLabel(0), units: {} }]
 };
 
 
@@ -299,7 +299,7 @@ function initBoardView() {
   });
 
   // Init state for new proposal
-  AppState.years = [{ label: 'Anno 1', units: {} }];
+  AppState.years = [{ label: getYearLabel(0), units: {} }];
 
   // Render the board
   const boardGrid = document.getElementById('board-grid');
@@ -356,10 +356,10 @@ async function loadProposalView(proposalId) {
       if (Array.isArray(proposal.assegnazioni)) {
         AppState.years = proposal.assegnazioni;
       } else {
-        AppState.years = [{ label: 'Anno 1', units: proposal.assegnazioni }];
+        AppState.years = [{ label: getYearLabel(0), units: proposal.assegnazioni }];
       }
     } else {
-      AppState.years = [{ label: 'Anno 1', units: {} }];
+      AppState.years = [{ label: getYearLabel(0), units: {} }];
     }
 
     // Reconstruct dummy capi if they exist in the saved assignments
@@ -482,7 +482,7 @@ window.deleteYear = async function(yearIndex) {
   
   // Update labels of remaining years to be sequential
   AppState.years.forEach((y, i) => {
-    y.label = `Anno ${i + 1}`;
+    y.label = getYearLabel(i);
   });
   
   // Re-render
@@ -583,8 +583,8 @@ function setupBoardEvents() {
       AppState.years = collectAssignments(AppState.capi, AppState.years.length);
       
       // Add a new empty year
-      const newYearNum = AppState.years.length + 1;
-      AppState.years.push({ label: `Anno ${newYearNum}`, units: {} });
+      const newYearIndex = AppState.years.length;
+      AppState.years.push({ label: getYearLabel(newYearIndex), units: {} });
       
       // Re-render
       const boardGrid = document.getElementById('board-grid');

@@ -134,11 +134,27 @@ export const BRANCHES = [
 // ══════════════════════════════════════════
 
 /**
+ * Generate a dynamic year label based on index (e.g. Anno 26/27)
+ */
+export function getYearLabel(index) {
+  const now = new Date();
+  let startYear = now.getFullYear();
+  if (now.getMonth() < 8) {
+    startYear -= 1;
+  }
+  startYear += index;
+  
+  const yy1 = startYear.toString().slice(-2);
+  const yy2 = (startYear + 1).toString().slice(-2);
+  return `Anno ${yy1}/${yy2}`;
+}
+
+/**
  * Render the board layout with all branches and drop zones
  * @param {HTMLElement} container - The board grid container
  * @param {Array} years - Array of year objects { label }
  */
-export function renderBoard(container, years = [{ label: 'Anno 1' }]) {
+export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
   container.innerHTML = '';
 
   years.forEach((year, yearIndex) => {
@@ -221,10 +237,10 @@ export function renderBoard(container, years = [{ label: 'Anno 1' }]) {
       // Unit Toggle Logic
       branchSec.querySelectorAll('.drop-zone__header').forEach(unitHeader => {
         unitHeader.addEventListener('click', () => {
-          const unitCards = unitHeader.nextElementSibling; // .drop-zone__cards
-          const isHidden = unitCards.style.display === 'none';
-          unitCards.style.display = isHidden ? 'grid' : 'none';
-          unitHeader.querySelector('.unit-toggle').textContent = isHidden ? '▼' : '▶';
+          const zone = unitHeader.closest('.drop-zone');
+          zone.classList.toggle('drop-zone--collapsed');
+          const isCollapsed = zone.classList.contains('drop-zone--collapsed');
+          unitHeader.querySelector('.unit-toggle').textContent = isCollapsed ? '▶' : '▼';
         });
       });
 
@@ -346,7 +362,7 @@ export function collectAssignments(capi, yearsCount = 1) {
       });
     }
     yearsData.push({
-      label: `Anno ${y + 1}`,
+      label: getYearLabel(y),
       units: assignments
     });
   }
@@ -370,7 +386,7 @@ export function loadAssignments(assegnazioni, capi, readonly = false) {
     yearsData = assegnazioni;
   } else {
     // Old flat format
-    yearsData = [{ label: 'Anno 1', units: assegnazioni }];
+    yearsData = [{ label: getYearLabel(0), units: assegnazioni }];
   }
 
   yearsData.forEach((year, y) => {

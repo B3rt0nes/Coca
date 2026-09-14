@@ -201,7 +201,7 @@
 
   /* Smaller cards in deck */
   .deck-drawer__cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .deck-preview {

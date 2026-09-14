@@ -55,11 +55,11 @@
   --sex-f:           #e88ca5;
 
   /* ── Fo.Ca. Level Colors ── */
-  --foca-nulla:      #505a72;
+  --foca-nulla:      #ffffff;
   --foca-tirocinio:  #f39c12;
-  --foca-cfm:        #3a8fd4;
-  --foca-cfa:        #2ecc71;
-  --foca-wb:         #e74c3c;
+  --foca-cfm:        #2ecc71;
+  --foca-cfa:        #e74c3c;
+  --foca-wb:         #9b59b6;
 
   /* ── Multi-incarico Glow ── */
   --glow-multi:      rgba(240, 192, 64, 0.6);

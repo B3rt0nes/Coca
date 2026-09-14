@@ -225,7 +225,7 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
             <option value="Tirocinio">Tirocinio</option>
             <option value="CFM">CFM</option>
             <option value="CFA">CFA</option>
-            <option value="WB">WB - Woodbadge</option>
+            <option value="WB">WB - Nomina</option>
           </select>
         </div>
 

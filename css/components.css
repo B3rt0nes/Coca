@@ -116,7 +116,6 @@
   box-shadow: var(--shadow-card);
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
 }
 
 .card:hover {
@@ -249,9 +248,9 @@
 }
 
 .badge--foca-nulla {
-  background: rgba(80, 90, 114, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   color: var(--foca-nulla);
-  border: 1px solid rgba(80, 90, 114, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .badge--foca-tirocinio {
@@ -261,28 +260,27 @@
 }
 
 .badge--foca-cfm {
-  background: rgba(58, 143, 212, 0.12);
-  color: var(--foca-cfm);
-  border: 1px solid rgba(58, 143, 212, 0.3);
-}
-
-.badge--foca-cfa {
   background: rgba(46, 204, 113, 0.12);
-  color: var(--foca-cfa);
+  color: var(--foca-cfm);
   border: 1px solid rgba(46, 204, 113, 0.3);
 }
 
-.badge--foca-wb {
+.badge--foca-cfa {
   background: rgba(231, 76, 60, 0.12);
-  color: var(--foca-wb);
+  color: var(--foca-cfa);
   border: 1px solid rgba(231, 76, 60, 0.3);
 }
 
-/* ── Incarichi Badge ── */
+.badge--foca-wb {
+  background: rgba(155, 89, 182, 0.12);
+  color: var(--foca-wb);
+  border: 1px solid rgba(155, 89, 182, 0.3);
+}
+
 .badge--incarico {
-  background: rgba(155, 89, 182, 0.1);
-  color: var(--accent-purple);
-  border: 1px solid rgba(155, 89, 182, 0.25);
+  background: rgba(58, 143, 212, 0.1);
+  color: var(--accent-blue);
+  border: 1px solid rgba(58, 143, 212, 0.25);
   font-size: 0.65rem;
 }
 
