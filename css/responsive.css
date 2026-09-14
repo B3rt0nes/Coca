@@ -154,7 +154,7 @@
   /* Fixed size for all card grids on desktop to prevent stretching */
   .drop-zone__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, 144px);
     justify-content: center;
     gap: var(--sp-2);
     min-height: 80px;
