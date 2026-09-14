@@ -137,48 +137,124 @@ export const BRANCHES = [
 /**
  * Render the board layout with all branches and drop zones
  * @param {HTMLElement} container - The board grid container
+ * @param {Array} years - Array of year objects { label }
  */
-export function renderBoard(container) {
+export function renderBoard(container, years = [{ label: 'Anno 1' }]) {
   container.innerHTML = '';
 
-  BRANCHES.forEach(branch => {
+  years.forEach((year, yearIndex) => {
     const section = document.createElement('div');
-    section.className = `branch-section ${branch.cssClass}`;
+    section.className = 'year-section';
+    
+    // Check if there's more than 1 year to show delete button
+    const deleteBtnHTML = years.length > 1 && window.deleteYear && !window.isBoardReadonly()
+      ? `<button class="btn btn--danger btn--small year-header__delete" data-year="${yearIndex}" title="Elimina Anno">🗑️</button>` 
+      : '';
 
-    const unitsHTML = branch.units.map(unitId => {
-      const unit = UNITS[unitId];
-      return `
-        <div class="drop-zone" data-unit-id="${unitId}">
-          <div class="drop-zone__header">
-            <span class="drop-zone__name">${unit.icon} ${unit.name}</span>
-            <span class="drop-zone__count" data-count-for="${unitId}">0 capi</span>
-          </div>
-          <div class="drop-zone__cards" id="zone-${unitId}" data-unit-id="${unitId}"></div>
-        </div>
-      `;
-    }).join('');
-
-    section.innerHTML = `
-      <div class="branch-header">
-        <span class="branch-header__icon">${branch.icon}</span>
-        ${branch.name}
+    const header = document.createElement('div');
+    header.className = 'year-header';
+    header.innerHTML = `
+      <div class="year-header__title">
+        <span>📅</span>
+        <span>${year.label}</span>
       </div>
-      <div class="branch-units">${unitsHTML}</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        ${deleteBtnHTML}
+        <div class="year-header__toggle">▼</div>
+      </div>
     `;
-
-    container.appendChild(section);
-
-    // Add tap-to-place logic for drop zones
-    branch.units.forEach(unitId => {
-      const zone = section.querySelector(`.drop-zone[data-unit-id="${unitId}"]`);
-      if (zone) {
-        zone.addEventListener('click', (e) => {
-          // Ignore clicks inside existing cards (to allow role dropdown interaction)
-          if (e.target.closest('.card')) return;
-          if (window.assignSelectedCapo) window.assignSelectedCapo(unitId);
-        });
+    
+    const body = document.createElement('div');
+    body.className = 'year-body';
+    body.style.display = 'grid'; // Default open
+    
+    header.addEventListener('click', (e) => {
+      // Don't toggle if they clicked the delete button
+      if (e.target.closest('.year-header__delete')) {
+        if (window.deleteYear) window.deleteYear(yearIndex);
+        return;
       }
+      const isOpen = body.style.display === 'grid';
+      body.style.display = isOpen ? 'none' : 'grid';
+      header.querySelector('.year-header__toggle').textContent = isOpen ? '▶' : '▼';
     });
+    
+    BRANCHES.forEach(branch => {
+      const branchSec = document.createElement('div');
+      branchSec.className = `branch-section ${branch.cssClass}`;
+
+      const unitsHTML = branch.units.map(unitId => {
+        const unit = UNITS[unitId];
+        return `
+          <div class="drop-zone" data-unit-id="${unitId}" data-year-index="${yearIndex}">
+            <div class="drop-zone__header" style="cursor: pointer; display: flex; justify-content: space-between;">
+              <div>
+                <span class="drop-zone__name">${unit.icon} ${unit.name}</span>
+                <span class="drop-zone__count" data-count-for="${unitId}" data-year-index="${yearIndex}">0 capi</span>
+              </div>
+              <div class="unit-toggle">▼</div>
+            </div>
+            <div class="drop-zone__cards drop-zone-list" id="zone-${yearIndex}-${unitId}" data-unit-id="${unitId}" data-year-index="${yearIndex}"></div>
+          </div>
+        `;
+      }).join('');
+
+      branchSec.innerHTML = `
+        <div class="branch-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span class="branch-header__icon">${branch.icon}</span>
+            ${branch.name}
+          </div>
+          <div class="branch-toggle">▼</div>
+        </div>
+        <div class="branch-units">${unitsHTML}</div>
+      `;
+
+      // Branch Toggle Logic
+      const branchHeader = branchSec.querySelector('.branch-header');
+      const branchUnits = branchSec.querySelector('.branch-units');
+      branchHeader.addEventListener('click', () => {
+        const isHidden = branchUnits.style.display === 'none';
+        branchUnits.style.display = isHidden ? 'flex' : 'none'; // Branch units is flex in css
+        branchHeader.querySelector('.branch-toggle').textContent = isHidden ? '▼' : '▶';
+      });
+
+      // Unit Toggle Logic
+      branchSec.querySelectorAll('.drop-zone__header').forEach(unitHeader => {
+        unitHeader.addEventListener('click', () => {
+          const unitCards = unitHeader.nextElementSibling; // .drop-zone__cards
+          const isHidden = unitCards.style.display === 'none';
+          unitCards.style.display = isHidden ? 'grid' : 'none';
+          unitHeader.querySelector('.unit-toggle').textContent = isHidden ? '▼' : '▶';
+        });
+      });
+
+      body.appendChild(branchSec);
+
+      // Add tap-to-place logic for drop zones
+      branch.units.forEach(unitId => {
+        const zone = branchSec.querySelector(`.drop-zone[data-unit-id="${unitId}"][data-year-index="${yearIndex}"]`);
+        if (zone) {
+          const zoneCards = zone.querySelector('.drop-zone__cards');
+          zoneCards.addEventListener('click', (e) => {
+            if (e.target.closest('.card')) return;
+            if (window.assignSelectedCapo) window.assignSelectedCapo(unitId, yearIndex);
+          });
+          // Also allow clicking empty space on header if not clicking the toggle
+          const zoneHeader = zone.querySelector('.drop-zone__header');
+          zoneHeader.addEventListener('click', (e) => {
+            // If they clicked to toggle, we don't assign
+             // but if they just tapped the header empty space to assign? 
+             // Actually, the user asked to make branches/units collapsible. We should just collapse on header click.
+             // We'll leave tap-to-place to the empty space of `.drop-zone__cards`.
+          });
+        }
+      });
+    });
+
+    section.appendChild(header);
+    section.appendChild(body);
+    container.appendChild(section);
   });
 }
 
@@ -232,12 +308,14 @@ export function createRoleSelect(unitId, currentRole = '', readonly = false) {
 /**
  * Update the card count display for a specific unit
  * @param {string} unitId
+ * @param {number} yearIndex
  */
-export function updateUnitCount(unitId) {
-  const zone = document.getElementById(`zone-${unitId}`);
-  const countEl = document.querySelector(`[data-count-for="${unitId}"]`);
+export function updateUnitCount(unitId, yearIndex) {
+  const zone = document.getElementById(`zone-${yearIndex}-${unitId}`);
+  const countEl = document.querySelector(`[data-count-for="${unitId}"][data-year-index="${yearIndex}"]`);
   if (zone && countEl) {
-    const count = zone.children.length;
+    // Only count actual cards, ignoring SortableJS drag elements
+    const count = zone.querySelectorAll('.card:not(.sortable-ghost):not(.sortable-drag)').length;
     countEl.textContent = `${count} cap${count === 1 ? 'o' : 'i'}`;
   }
 }
@@ -245,33 +323,41 @@ export function updateUnitCount(unitId) {
 /**
  * Collect all assignments from the board
  * @param {Array} capi - Full capi list for reference
- * @returns {Object} { unitId: [{ capoId, ruolo }], ... }
+ * @param {number} yearsCount - How many years are on the board
+ * @returns {Array} [{ label: 'Anno 1', units: { unitId: [{ capoId, ruolo }] } }]
  */
-export function collectAssignments(capi) {
-  const assignments = {};
+export function collectAssignments(capi, yearsCount = 1) {
+  const yearsData = [];
 
-  for (const unitId of Object.keys(UNITS)) {
-    const zone = document.getElementById(`zone-${unitId}`);
-    if (!zone) {
-      assignments[unitId] = [];
-      continue;
+  for (let y = 0; y < yearsCount; y++) {
+    const assignments = {};
+    for (const unitId of Object.keys(UNITS)) {
+      const zone = document.getElementById(`zone-${y}-${unitId}`);
+      if (!zone) {
+        assignments[unitId] = [];
+        continue;
+      }
+
+      const cards = zone.querySelectorAll('.card');
+      assignments[unitId] = Array.from(cards).map(card => {
+        const capoId = card.dataset.capoId;
+        const roleSelect = card.querySelector('.card__role-dropdown');
+        const ruolo = roleSelect ? roleSelect.value : '';
+        return { capoId, ruolo };
+      });
     }
-
-    const cards = zone.querySelectorAll('.card');
-    assignments[unitId] = Array.from(cards).map(card => {
-      const capoId = card.dataset.capoId;
-      const roleSelect = card.querySelector('.card__role-dropdown');
-      const ruolo = roleSelect ? roleSelect.value : '';
-      return { capoId, ruolo };
+    yearsData.push({
+      label: `Anno ${y + 1}`,
+      units: assignments
     });
   }
 
-  return assignments;
+  return yearsData;
 }
 
 /**
  * Load assignments into the board (for viewing saved proposals)
- * @param {Object} assegnazioni - { unitId: [{ capoId, ruolo }] }
+ * @param {Array|Object} assegnazioni - New array format or old object format
  * @param {Array} capi - Full capi list
  * @param {boolean} readonly - If true, cards are not draggable
  */
@@ -279,97 +365,117 @@ export function loadAssignments(assegnazioni, capi, readonly = false) {
   const capiMap = {};
   capi.forEach(c => { capiMap[c.id] = c; });
 
-  for (const [unitId, assignments] of Object.entries(assegnazioni)) {
-    const zone = document.getElementById(`zone-${unitId}`);
-    if (!zone) continue;
-
-    zone.innerHTML = '';
-
-    assignments.forEach(assignment => {
-      const capo = capiMap[assignment.capoId];
-      if (!capo) return;
-
-      const card = createCardElement(capo, {
-        showRemove: !readonly,
-        readonly
-      });
-
-      // Add role select
-      const roleSelect = createRoleSelect(unitId, assignment.ruolo, readonly);
-      card.appendChild(roleSelect);
-
-      zone.appendChild(card);
-    });
-
-    updateUnitCount(unitId);
+  // Handle retro-compatibility
+  let yearsData = [];
+  if (Array.isArray(assegnazioni)) {
+    yearsData = assegnazioni;
+  } else {
+    // Old flat format
+    yearsData = [{ label: 'Anno 1', units: assegnazioni }];
   }
 
-  // Update multi-incarico highlights
+  yearsData.forEach((year, y) => {
+    for (const [unitId, assignments] of Object.entries(year.units)) {
+      const zone = document.getElementById(`zone-${y}-${unitId}`);
+      if (!zone) continue;
+
+      zone.innerHTML = '';
+
+      assignments.forEach(assignment => {
+        const capo = capiMap[assignment.capoId];
+        if (!capo) return;
+
+        const card = createCardElement(capo, {
+          showRemove: !readonly,
+          readonly
+        });
+
+        // Add role select
+        const roleSelect = createRoleSelect(unitId, assignment.ruolo, readonly);
+        card.appendChild(roleSelect);
+
+        zone.appendChild(card);
+      });
+
+      updateUnitCount(unitId, y);
+    }
+  });
+
   if (!readonly) {
-    updateMultiIncarico();
+    updateMultiIncarico(yearsData.length);
   } else {
-    // Still show multi highlights in readonly
-    updateMultiIncaricoReadonly(assegnazioni);
+    updateMultiIncaricoReadonly(yearsData);
   }
 }
 
 /**
- * Update multi-incarico visual indicators
- * Scans all zones for cards with the same capoId in multiple units
+ * Update multi-incarico visual indicators per year
  */
-export function updateMultiIncarico() {
-  // Count assignments per capo
-  const capoCount = {};
+export function updateMultiIncarico(yearsCount = 1) {
+  // We check multi-incarico independently for each year
+  for (let y = 0; y < yearsCount; y++) {
+    const capoCount = {};
 
-  for (const unitId of Object.keys(UNITS)) {
-    const zone = document.getElementById(`zone-${unitId}`);
-    if (!zone) continue;
+    for (const unitId of Object.keys(UNITS)) {
+      const zone = document.getElementById(`zone-${y}-${unitId}`);
+      if (!zone) continue;
 
-    zone.querySelectorAll('.card').forEach(card => {
-      const capoId = card.dataset.capoId;
-      if (!capoCount[capoId]) capoCount[capoId] = [];
-      capoCount[capoId].push(card);
-    });
+      zone.querySelectorAll('.card').forEach(card => {
+        const capoId = card.dataset.capoId;
+        if (!capoCount[capoId]) capoCount[capoId] = [];
+        capoCount[capoId].push(card);
+      });
+    }
+
+    // Apply/remove multi class within this year
+    for (const [capoId, cards] of Object.entries(capoCount)) {
+      const isMulti = cards.length > 1;
+      cards.forEach(card => {
+        card.classList.toggle('card--multi', isMulti);
+      });
+    }
   }
 
-  // Apply/remove multi class
-  for (const [capoId, cards] of Object.entries(capoCount)) {
-    const isMulti = cards.length > 1;
-    cards.forEach(card => {
-      card.classList.toggle('card--multi', isMulti);
-    });
-  }
+  // Also highlight cards in the deck that are assigned SOMEWHERE 
+  // (We'll just mark them multi if they are assigned multiple times across ANY year for simplicity, 
+  // or we can skip deck multi highlighting since it's complex with years. Let's just do global count for deck).
+  const globalCapoCount = {};
+  document.querySelectorAll('.board-grid .card').forEach(card => {
+    const capoId = card.dataset.capoId;
+    if (!globalCapoCount[capoId]) globalCapoCount[capoId] = 0;
+    globalCapoCount[capoId]++;
+  });
 
-  // Also highlight cards in the deck that are assigned somewhere
   const deckCards = document.querySelectorAll('.deck-drawer__cards .card');
   deckCards.forEach(card => {
     const capoId = card.dataset.capoId;
-    const count = capoCount[capoId] ? capoCount[capoId].length : 0;
+    const count = globalCapoCount[capoId] || 0;
     card.classList.toggle('card--multi', count > 1);
   });
 }
 
 /**
- * Update multi-incarico for readonly mode (from saved data)
+ * Update multi-incarico for readonly mode
  */
-function updateMultiIncaricoReadonly(assegnazioni) {
-  const capoCount = {};
+function updateMultiIncaricoReadonly(yearsData) {
+  yearsData.forEach((year, y) => {
+    const capoCount = {};
 
-  for (const [unitId, assignments] of Object.entries(assegnazioni)) {
-    assignments.forEach(a => {
-      if (!capoCount[a.capoId]) capoCount[a.capoId] = 0;
-      capoCount[a.capoId]++;
-    });
-  }
+    for (const [unitId, assignments] of Object.entries(year.units)) {
+      assignments.forEach(a => {
+        if (!capoCount[a.capoId]) capoCount[a.capoId] = 0;
+        capoCount[a.capoId]++;
+      });
+    }
 
-  // Apply multi class to cards with count > 1
-  for (const unitId of Object.keys(UNITS)) {
-    const zone = document.getElementById(`zone-${unitId}`);
-    if (!zone) continue;
+    for (const unitId of Object.keys(UNITS)) {
+      const zone = document.getElementById(`zone-${y}-${unitId}`);
+      if (!zone) continue;
 
-    zone.querySelectorAll('.card').forEach(card => {
-      const capoId = card.dataset.capoId;
-      card.classList.toggle('card--multi', (capoCount[capoId] || 0) > 1);
-    });
-  }
+      zone.querySelectorAll('.card').forEach(card => {
+        const capoId = card.dataset.capoId;
+        card.classList.toggle('card--multi', (capoCount[capoId] || 0) > 1);
+      });
+    }
+  });
 }

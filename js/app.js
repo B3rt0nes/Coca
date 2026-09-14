@@ -22,10 +22,10 @@ const AppState = {
   currentProposalId: null,
   isReadonly: false,
   selectedCapoId: null,
-  unsubscribeCapi: null,
   unsubscribeProposals: null,
   deckFilter: '',
-  drawerCollapsed: true
+  drawerCollapsed: true,
+  years: [{ label: 'Anno 1', units: {} }]
 };
 
 
@@ -64,6 +64,10 @@ function handleRoute() {
         navigate('#login');
         return;
       }
+      
+      // Clear any dummy capi from memory when returning to dashboard
+      AppState.capi = AppState.capi.filter(c => !c.isDummy);
+
       showView('dashboard-view');
       updateDashboardHeader();
       loadDashboard();
@@ -161,14 +165,17 @@ function renderDashboardDeck() {
   const container = document.getElementById('dashboard-deck');
   if (!container) return;
 
+  // Filter out dummy capi for the dashboard
+  const realCapi = AppState.capi.filter(c => !c.isDummy);
+
   const countEl = document.getElementById('deck-count');
   if (countEl) {
-    countEl.textContent = `(${AppState.capi.length})`;
+    countEl.textContent = `(${realCapi.length})`;
   }
 
   const sortVal = document.getElementById('dashboard-deck-sort')?.value || 'name';
 
-  renderDeckPreview(container, AppState.capi, async (capoId, name) => {
+  renderDeckPreview(container, realCapi, async (capoId, name) => {
     const confirmed = await showConfirm(
       'Elimina Capo',
       `Sei sicuro di voler eliminare <strong>${name}</strong> dal mazzo?<br><br>Questa azione non può essere annullata.`
@@ -295,9 +302,12 @@ function initBoardView() {
     initDragDrop(AppState.capi, onBoardChange);
   });
 
+  // Init state for new proposal
+  AppState.years = [{ label: 'Anno 1', units: {} }];
+
   // Render the board
   const boardGrid = document.getElementById('board-grid');
-  renderBoard(boardGrid);
+  renderBoard(boardGrid, AppState.years);
 
   // Render deck in drawer
   renderDeckInDrawer();
@@ -345,9 +355,41 @@ async function loadProposalView(proposalId) {
       document.getElementById('deck-drawer')?.classList.remove('hidden');
     }
 
+    // Process assignments to update AppState.years before rendering
+    if (proposal.assegnazioni) {
+      if (Array.isArray(proposal.assegnazioni)) {
+        AppState.years = proposal.assegnazioni;
+      } else {
+        AppState.years = [{ label: 'Anno 1', units: proposal.assegnazioni }];
+      }
+    } else {
+      AppState.years = [{ label: 'Anno 1', units: {} }];
+    }
+
+    // Reconstruct dummy capi if they exist in the saved assignments
+    AppState.years.forEach(year => {
+      Object.values(year.units || {}).forEach(unitAssignments => {
+        unitAssignments.forEach(assignment => {
+          if (assignment.capoId && assignment.capoId.startsWith('new-entry-')) {
+            if (!AppState.capi.find(c => c.id === assignment.capoId)) {
+              AppState.capi.push({
+                id: assignment.capoId,
+                nome: 'Nuovo',
+                cognome: 'Entrato',
+                sesso: 'M',
+                livelloFoca: 'Nulla',
+                altriIncarichi: ['Nessuno'],
+                isDummy: true
+              });
+            }
+          }
+        });
+      });
+    });
+
     // Render the board
     const boardGrid = document.getElementById('board-grid');
-    renderBoard(boardGrid);
+    renderBoard(boardGrid, AppState.years);
 
     // Load saved assignments
     if (proposal.assegnazioni) {
@@ -421,7 +463,45 @@ window.clearSelectedCapo = function() {
   renderDeckInDrawer();
 };
 
-window.assignSelectedCapo = function(unitId) {
+window.isBoardReadonly = function() {
+  return AppState.isReadonly;
+};
+
+window.deleteYear = async function(yearIndex) {
+  if (AppState.isReadonly) return;
+  if (AppState.years.length <= 1) return; // Must have at least 1 year
+  
+  const confirm = await showConfirm(
+    'Elimina Anno',
+    `Sei sicuro di voler eliminare l'Anno ${yearIndex + 1} e tutte le sue assegnazioni?`
+  );
+  if (!confirm) return;
+  
+  // Save current board state first (before removing)
+  AppState.years = collectAssignments(AppState.capi, AppState.years.length);
+  
+  // Remove the specified year
+  AppState.years.splice(yearIndex, 1);
+  
+  // Update labels of remaining years to be sequential
+  AppState.years.forEach((y, i) => {
+    y.label = `Anno ${i + 1}`;
+  });
+  
+  // Re-render
+  const boardGrid = document.getElementById('board-grid');
+  renderBoard(boardGrid, AppState.years);
+  
+  // Restore assignments
+  loadAssignments(AppState.years, AppState.capi, false);
+  
+  // Re-init dragdrop
+  initDragDrop(AppState.capi, onBoardChange);
+  reattachRoleListeners(onBoardChange);
+  onBoardChange(); // Trigger unsaved changes
+};
+
+window.assignSelectedCapo = function(unitId, yearIndex = 0) {
   if (AppState.isReadonly) return;
   const capoId = window.getSelectedCapoId();
   if (!capoId) return;
@@ -429,16 +509,16 @@ window.assignSelectedCapo = function(unitId) {
   const capo = AppState.capi.find(c => c.id === capoId);
   if (!capo) return;
 
-  const zone = document.getElementById(`zone-${unitId}`);
+  const zone = document.getElementById(`zone-${yearIndex}-${unitId}`);
   if (!zone) return;
 
-  // Check if card is already on the board in another unit
-  let card = document.querySelector(`.board-grid .card[data-capo-id="${capoId}"]`);
+  // Check if card is already on the board in THIS year in another unit
+  let card = document.querySelector(`.drop-zone[data-year-index="${yearIndex}"] .card[data-capo-id="${capoId}"]`);
   
   if (card) {
     zone.appendChild(card);
   } else {
-    card = createCardElement(capo);
+    card = createCardElement(capo, { showRemove: true });
     zone.appendChild(card);
   }
   
@@ -449,11 +529,27 @@ window.assignSelectedCapo = function(unitId) {
   const roleSelect = createRoleSelect(unitId);
   card.appendChild(roleSelect);
   
+  // Add remove button if not present (in case it was moved from another zone where it lost it, though it shouldn't)
+  if (!card.querySelector('.card__remove-btn')) {
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'card__remove-btn';
+    removeBtn.title = 'Rimuovi dall\'unità';
+    removeBtn.textContent = '✕';
+    removeBtn.dataset.action = 'remove';
+    card.querySelector('.card__header').appendChild(removeBtn);
+  }
+
+  // Listen for role changes
   const select = card.querySelector('.card__role-dropdown');
   if (select) {
     select.addEventListener('change', () => {
       onBoardChange();
     });
+  }
+
+  // Update counts
+  for (const uid of Object.keys(UNITS)) {
+    updateUnitCount(uid, yearIndex);
   }
   
   window.clearSelectedCapo();
@@ -479,6 +575,53 @@ function setupBoardEvents() {
   document.getElementById('btn-save-proposal')?.addEventListener('click', async () => {
     await handleSaveProposal();
   });
+
+  // Add year button
+  const btnAddYear = document.getElementById('btn-add-year');
+  if (btnAddYear) {
+    btnAddYear.addEventListener('click', () => {
+      if (AppState.isReadonly) return;
+      
+      // Save current board state first before re-rendering
+      AppState.years = collectAssignments(AppState.capi, AppState.years.length);
+      
+      // Add a new empty year
+      const newYearNum = AppState.years.length + 1;
+      AppState.years.push({ label: `Anno ${newYearNum}`, units: {} });
+      
+      // Re-render
+      const boardGrid = document.getElementById('board-grid');
+      renderBoard(boardGrid, AppState.years);
+      
+      // Restore assignments
+      loadAssignments(AppState.years, AppState.capi, false);
+      
+      // Re-init dragdrop
+      initDragDrop(AppState.capi, onBoardChange);
+      reattachRoleListeners(onBoardChange);
+    });
+  }
+
+  // Add dummy capo button
+  const btnAddDummy = document.getElementById('btn-add-dummy');
+  if (btnAddDummy) {
+    btnAddDummy.addEventListener('click', () => {
+      if (AppState.isReadonly) return;
+      const dummyId = `new-entry-${Date.now()}`;
+      AppState.capi.push({
+        id: dummyId,
+        nome: 'Nuovo',
+        cognome: 'Entrato',
+        sesso: 'M', // Default
+        livelloFoca: 'Nulla',
+        altriIncarichi: ['Nessuno'],
+        isDummy: true
+      });
+      renderDeckInDrawer();
+      initDragDrop(AppState.capi, onBoardChange);
+      showToast('Nuovo entrato aggiunto al mazzo', 'success', 2000);
+    });
+  }
 
   // Delete proposal button
   document.getElementById('btn-delete-proposal')?.addEventListener('click', async () => {
@@ -512,11 +655,20 @@ async function handleSaveProposal() {
     return;
   }
 
-  // Collect assignments from the board
-  const assegnazioni = collectAssignments(AppState.capi);
+  // Collect assignments from the board (array of years)
+  const assegnazioni = collectAssignments(AppState.capi, AppState.years.length);
 
-  // Validate
-  const warnings = validateProposal(assegnazioni, AppState.capi);
+  // Validation currently only runs on the FIRST year or flat format.
+  // We'll validate all years, merging the warnings.
+  let warnings = [];
+  assegnazioni.forEach((yearData, i) => {
+    // validateProposal expects a flat object { unitId: [...] }
+    const yearWarnings = validateProposal(yearData.units, AppState.capi);
+    if (yearWarnings.length > 0) {
+      warnings.push(`<strong>${yearData.label}:</strong>`);
+      warnings.push(...yearWarnings);
+    }
+  });
 
   if (warnings.length > 0) {
     const warningList = warnings.map(w => `<li>${w}</li>`).join('');

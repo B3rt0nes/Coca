@@ -98,6 +98,86 @@
   margin: 0 auto;
 }
 
+@media (max-width: 480px) {
+  /* Commenting out to keep 2 columns on all devices as requested
+  .drop-zone__cards {
+    grid-template-columns: 1fr;
+  }
+  */
+}
+
+/* ══════════════════════════════════════════
+   MOBILE / RESPONSIVE (Header & Grid)
+   ══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .btn-save-text, .btn-back-text {
+    display: none;
+  }
+  .board-header {
+    padding: var(--sp-2);
+    gap: var(--sp-1);
+  }
+  .board-header__left {
+    gap: var(--sp-1);
+  }
+  .board-title-input {
+    width: 140px;
+    font-size: 0.95rem;
+    padding: var(--sp-1) var(--sp-2);
+  }
+}
+
+@media (min-width: 992px) {
+  .year-body {
+    grid-template-columns: 1fr;
+  }
+  .branch-units {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* ══════════════════════════════════════════
+   YEAR SECTION
+   ══════════════════════════════════════════ */
+.year-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--sp-6);
+  overflow: hidden;
+}
+
+.year-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-glass);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.year-header:hover {
+  background: var(--bg-glass-hover);
+}
+
+.year-header__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.year-body {
+  padding: var(--sp-4);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+}
 
 /* ══════════════════════════════════════════
    BRANCH SECTION
@@ -191,14 +271,18 @@
 }
 
 .drop-zone__cards {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-2);
-  min-height: 60px;
+  min-height: 80px;
   position: relative;
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+  background: rgba(0, 0, 0, 0.01);
 }
 
-/* Empty state with dashed border */
+/* Empty state text only */
 .drop-zone__cards:empty::before {
   content: 'Trascina qui i capi';
   position: absolute;
@@ -206,8 +290,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed var(--border-light);
-  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: 0.8rem;
   font-style: italic;
@@ -237,11 +319,11 @@
 
 /* Validation indicators on drop zone */
 .drop-zone--warning .drop-zone__header {
-  color: var(--accent-gold);
+  color: var(--text-secondary);
 }
 
 .drop-zone--warning {
-  box-shadow: inset 0 0 0 1px rgba(240, 192, 64, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(240, 192, 64, 0.4);
 }
 
 .drop-zone--valid .drop-zone__header {
@@ -264,8 +346,8 @@
 }
 
 .drop-zone__validation--warn {
-  color: var(--accent-gold);
-  background: rgba(240, 192, 64, 0.1);
+  color: var(--text-secondary);
+  background: rgba(240, 192, 64, 0.2);
 }
 
 /* Read-only mode */
@@ -313,11 +395,19 @@
 }
 
 .deck-drawer__handle {
-  display: none !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 24px;
+  cursor: row-resize;
+  touch-action: none;
 }
 
 .deck-drawer__handle-bar {
-  display: none !important;
+  width: 60px;
+  height: 6px;
+  background: #d1d5db;
+  border-radius: 10px;
 }
 
 .deck-drawer__header {
@@ -369,6 +459,7 @@
 .deck-drawer__cards {
   padding: var(--sp-3) var(--sp-4);
   overflow-y: auto;
+  touch-action: pan-y;
   flex: 1;
   min-height: 0;
   display: grid;

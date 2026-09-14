@@ -158,7 +158,7 @@ export function showWarningConfirm(title, message) {
       },
       {
         label: 'Salva comunque',
-        class: 'btn--danger',
+        class: 'btn--primary',
         onClick: () => resolve(true)
       }
     ]);

@@ -141,7 +141,7 @@
       <header class="board-header">
         <div class="board-header__left">
           <button class="board-header__back" id="btn-board-back" title="Torna alla Dashboard">
-            ← Indietro
+            ← <span class="btn-back-text">Indietro</span>
           </button>
           <input
             type="text"
@@ -155,8 +155,8 @@
           <button class="btn btn--danger btn--small hidden" id="btn-delete-proposal" title="Elimina proposta">
             🗑
           </button>
-          <button class="btn btn--primary" id="btn-save-proposal">
-            💾 Salva Proposta
+          <button class="btn btn--primary" id="btn-save-proposal" title="Salva Proposta">
+            💾 <span class="btn-save-text">Salva Proposta</span>
           </button>
         </div>
       </header>
@@ -166,29 +166,42 @@
         <div class="board-grid" id="board-grid">
           <!-- Branch sections are rendered dynamically by board.js -->
         </div>
+        <div style="text-align: center; margin-top: 24px; padding-bottom: 32px;" id="add-year-container">
+          <button class="btn btn--secondary" id="btn-add-year">
+            ✚ Aggiungi Previsione Anno Successivo
+          </button>
+        </div>
       </div>
 
       <!-- Deck Drawer (Bottom Sheet Mobile / Sidebar Desktop) -->
       <aside class="deck-drawer" id="deck-drawer">
+        <div class="deck-drawer__handle">
+          <div class="deck-drawer__handle-bar"></div>
+        </div>
         <div class="deck-drawer__header">
           <h3 class="deck-drawer__title">
             🃏 Mazzo
             <span class="deck-drawer__count" id="drawer-deck-count"></span>
           </h3>
         </div>
-        <div class="deck-drawer__search" style="display: flex; gap: 8px;">
-          <input
-            type="text"
-            class="deck-search-input"
-            id="drawer-search"
-            placeholder="Cerca capo..."
-            style="flex: 1;"
-          >
-          <select id="drawer-deck-sort" class="form-input" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: var(--bg-input);">
-            <option value="name">Alfabetico</option>
-            <option value="foca">Livello Fo.Ca.</option>
-            <option value="sex">Sesso</option>
-          </select>
+        <div class="deck-drawer__search" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <input
+              type="text"
+              class="deck-search-input"
+              id="drawer-search"
+              placeholder="Cerca capo..."
+              style="flex: 1;"
+            >
+            <select id="drawer-deck-sort" class="form-input" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: var(--bg-input);">
+              <option value="name">Alfabetico</option>
+              <option value="foca">Livello Fo.Ca.</option>
+              <option value="sex">Sesso</option>
+            </select>
+          </div>
+          <button class="btn btn--secondary btn--small" id="btn-add-dummy" style="width: 100%; border: 1px dashed var(--border-light); background: transparent; padding: var(--sp-1);">
+            ➕ Aggiungi Nuovo Entrato
+          </button>
         </div>
         <div class="deck-drawer__cards" id="deck-cards">
           <!-- Cards rendered by deck.js -->
@@ -202,9 +215,63 @@
   <!-- App Script (ES Module) -->
   <script type="module" src="js/app.js"></script>
 
-  <!-- Hidden utility class -->
+  <!-- Drawer Resize Script -->
+  <script>
+    const deckDrawer = document.getElementById('deck-drawer');
+    const handle = deckDrawer?.querySelector('.deck-drawer__handle');
+    if (handle) {
+      let startY, startHeight;
+      const onPointerDown = e => {
+        startY = e.clientY;
+        startHeight = deckDrawer.offsetHeight;
+        document.body.style.userSelect = 'none';
+        deckDrawer.style.flex = 'none';
+        const onMove = ev => {
+          const dy = ev.clientY - startY;
+          const newHeight = Math.max(60, startHeight - dy);
+          deckDrawer.style.height = `${newHeight}px`;
+        };
+        const onUp = () => {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          document.body.style.userSelect = 'auto';
+        };
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      };
+      handle.addEventListener('pointerdown', onPointerDown);
+    }
+  </script>
+
+  <!-- Hidden utility class & custom styles -->
   <style>
     .hidden { display: none !important; }
+    .deck-drawer__cards {
+      max-height: none;
+      grid-template-columns: 1fr 1fr;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .deck-drawer__handle {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 24px;
+      cursor: row-resize;
+      touch-action: none;
+    }
+    .deck-drawer__handle-bar {
+      width: 60px;
+      height: 6px;
+      background: #d1d5db;
+      border-radius: 10px;
+    }
+    @media (min-width: 1024px) {
+      .deck-drawer__handle {
+        display: none !important;
+      }
+    }
   </style>
 
 </body>

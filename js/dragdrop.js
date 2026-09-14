@@ -23,8 +23,8 @@ export function initDragDrop(capi, onBoardChange) {
     const deckSortable = new Sortable(deckContainer, {
       group: {
         name: 'coca-cards',
-        pull: 'clone',  // Clone cards from deck (don't remove)
-        put: false       // Don't allow dropping back into deck
+        pull: true,     // Move cards from deck (deck re-render will put them at the bottom)
+        put: false      // Don't allow dropping back into deck
       },
       sort: false,        // Don't sort within deck
       filter: '.deck-drawer__divider', // Don't drag the divider
@@ -32,17 +32,12 @@ export function initDragDrop(capi, onBoardChange) {
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
       chosenClass: 'sortable-chosen',
-      delay: 150,         // Touch delay to distinguish scroll vs drag
+      delay: 200,         // Touch delay to distinguish scroll vs drag
       delayOnTouchOnly: true,
       touchStartThreshold: 5,
       forceFallback: true, // Better cross-browser touch support
       fallbackOnBody: true,
-      fallbackTolerance: 5,
-
-      onClone: function(evt) {
-        // The clone stays in the deck, the dragged item goes to the zone
-        // We need to add role select to the clone that gets placed in the zone
-      },
+      fallbackTolerance: 10,
 
       onStart: function(evt) {
         document.body.classList.add('is-dragging');
@@ -62,10 +57,11 @@ export function initDragDrop(capi, onBoardChange) {
     sortableInstances.push(deckSortable);
   }
 
-  // Setup each drop zone
-  for (const unitId of Object.keys(UNITS)) {
-    const zoneEl = document.getElementById(`zone-${unitId}`);
-    if (!zoneEl) continue;
+  // Setup each drop zone dynamically across all years
+  const dropZones = document.querySelectorAll('.drop-zone-list');
+  dropZones.forEach(zoneEl => {
+    const unitId = zoneEl.dataset.unitId;
+    const yearIndex = zoneEl.dataset.yearIndex;
 
     const zoneSortable = new Sortable(zoneEl, {
       group: {
@@ -86,8 +82,7 @@ export function initDragDrop(capi, onBoardChange) {
 
       onAdd: function(evt) {
         const card = evt.item;
-        const capoId = card.dataset.capoId;
-
+        
         // Remove any existing role select
         const existingRole = card.querySelector('.card__role-select');
         if (existingRole) existingRole.remove();
@@ -115,20 +110,19 @@ export function initDragDrop(capi, onBoardChange) {
         }
 
         // Update counts and multi-incarico
-        updateUnitCount(unitId);
-        updateMultiIncarico();
-        onBoardChange();
+        updateUnitCount(unitId, yearIndex);
+        updateMultiIncarico(document.querySelectorAll('.year-section').length);
+        setTimeout(() => onBoardChange(), 10);
       },
 
       onRemove: function(evt) {
-        updateUnitCount(unitId);
-        updateMultiIncarico();
-        onBoardChange();
+        updateUnitCount(unitId, yearIndex);
+        updateMultiIncarico(document.querySelectorAll('.year-section').length);
+        setTimeout(() => onBoardChange(), 10);
       },
 
       onUpdate: function(evt) {
-        // Card reordered within the same zone
-        onBoardChange();
+        setTimeout(() => onBoardChange(), 10);
       },
 
       onStart: function(evt) {
@@ -151,7 +145,9 @@ export function initDragDrop(capi, onBoardChange) {
         const newZone = card.closest('.drop-zone__cards');
         if (newZone) {
           const newUnitId = newZone.dataset.unitId;
-          if (newUnitId && newUnitId !== unitId) {
+          const newYearIndex = newZone.dataset.yearIndex;
+          
+          if (newUnitId && (newUnitId !== unitId || newYearIndex !== yearIndex)) {
             // Remove old role select and add new one
             const oldRole = card.querySelector('.card__role-select');
             if (oldRole) oldRole.remove();
@@ -166,18 +162,17 @@ export function initDragDrop(capi, onBoardChange) {
               });
             }
           }
+          
+          if (newUnitId) updateUnitCount(newUnitId, newYearIndex);
         }
 
-        // Update all unit counts
-        for (const uid of Object.keys(UNITS)) {
-          updateUnitCount(uid);
-        }
-        updateMultiIncarico();
+        updateUnitCount(unitId, yearIndex);
+        updateMultiIncarico(document.querySelectorAll('.year-section').length);
       }
     });
 
     sortableInstances.push(zoneSortable);
-  }
+  });
 
   // Event delegation for remove buttons
   document.addEventListener('click', handleRemoveClick);
@@ -197,6 +192,7 @@ function handleRemoveClick(e) {
   if (!zone) return;
 
   const unitId = zone.dataset.unitId;
+  const yearIndex = zone.dataset.yearIndex;
 
   // Remove with animation
   card.style.transition = 'all 0.2s ease';
@@ -205,8 +201,12 @@ function handleRemoveClick(e) {
 
   setTimeout(() => {
     card.remove();
-    if (unitId) updateUnitCount(unitId);
-    updateMultiIncarico();
+    if (unitId && yearIndex) updateUnitCount(unitId, yearIndex);
+    updateMultiIncarico(document.querySelectorAll('.year-section').length);
+    
+    // Trigger board change so UI and assignments are synced
+    const event = new Event('change');
+    document.dispatchEvent(event);
   }, 200);
 }
 
