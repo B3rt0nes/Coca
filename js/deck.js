@@ -51,19 +51,40 @@ export function createCardElement(capo, options = {}) {
   card.dataset.capoId = capo.id;
   if (unitId) card.dataset.unitId = unitId;
 
-  // Sex icon
-  const sexClass = capo.sesso === 'M' ? 'card__sex-icon--m' : 'card__sex-icon--f';
-  const sexSymbol = capo.sesso === 'M' ? '♂' : '♀';
+  // Photo
+  let photoHTML = '';
+  if (capo.fotoUrl) {
+    photoHTML = `<img src="${capo.fotoUrl}" class="card__photo-large" alt="Foto di ${capo.nome}">`;
+  } else {
+    const initials = (capo.nome.charAt(0) + (capo.cognome ? capo.cognome.charAt(0) : '')).toUpperCase();
+    photoHTML = `<div class="card__photo-large card__photo-placeholder">${initials}</div>`;
+  }
+
+  // Sex chip
+  const sexClass = capo.sesso === 'M' ? 'chip--sex-m' : 'chip--sex-f';
+  const sexLabel = capo.sesso === 'M' ? 'M' : 'F';
+  const sexHTML = `<span class="chip ${sexClass}">${sexLabel}</span>`;
 
   // Fo.Ca. badge
   const focaBadgeClass = getFocaBadgeClass(capo.livelloFoca);
   const focaLabel = getFocaLabel(capo);
 
-  // Incarichi badges
-  const incarichiHTML = (capo.altriIncarichi || [])
-    .filter(i => i !== 'Nessuno')
-    .map(i => `<span class="badge badge--incarico">${i}</span>`)
-    .join('');
+  // Incarichi logic
+  const incarichi = (capo.altriIncarichi || []).filter(i => i !== 'Nessuno');
+  let incarichiHTML = '';
+  if (incarichi.length === 1) {
+    incarichiHTML = `<div class="card__incarichi-container"><span class="badge badge--incarico">${incarichi[0]}</span></div>`;
+  } else if (incarichi.length > 1) {
+    const badges = incarichi.map(i => `<span class="badge badge--incarico">${i}</span>`).join('');
+    incarichiHTML = `
+      <div class="card__incarichi-container">
+        <details class="incarichi-toggle">
+          <summary>Incarichi (${incarichi.length})</summary>
+          <div class="incarichi-list">${badges}</div>
+        </details>
+      </div>
+    `;
+  }
 
   // Remove button (for cards in units)
   const removeHTML = showRemove && !readonly
@@ -78,20 +99,23 @@ export function createCardElement(capo, options = {}) {
   }
 
   const displayNameHTML = capo.soprannome
-    ? `${capo.soprannome} <span style="font-size: 0.75em; opacity: 0.7; font-weight: normal; margin-left: 4px;">(${capo.nome} ${capo.cognome})</span>`
+    ? `${capo.soprannome} <span class="card__name-sub">(${capo.nome} ${capo.cognome})</span>`
     : `${capo.cognome} ${capo.nome}`;
 
   card.innerHTML = `
-    <div class="card__header">
-      <span class="card__sex-icon ${sexClass}">${sexSymbol}</span>
-      <span class="card__name">${displayNameHTML}</span>
+    <div class="card__photo-wrapper">
+      ${photoHTML}
       <span class="card__multi-badge">⚡ Multi</span>
       ${removeHTML}
     </div>
-    <div class="card__tags">
-      <span class="badge ${focaBadgeClass}">${focaLabel}</span>
-      ${incarichiHTML}
+    <div class="card__name-row">
+      <span class="card__name">${displayNameHTML}</span>
     </div>
+    <div class="card__info-row">
+      <span class="badge ${focaBadgeClass}">${focaLabel}</span>
+      ${sexHTML}
+    </div>
+    ${incarichiHTML}
     ${roleHTML}
   `;
 

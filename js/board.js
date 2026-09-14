@@ -92,7 +92,7 @@ export const UNITS = {
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
     ],
-    mainRoles: [] // No main role validation for CoCa
+    mainRoles: ['CG']
   }
 };
 
@@ -312,6 +312,13 @@ export function createRoleSelect(unitId, currentRole = '', readonly = false) {
     opt.textContent = role.label;
     if (role.value === currentRole) opt.selected = true;
     select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => {
+    if (select.value && select.value !== 'Senza ruolo') {
+      const card = select.closest('.card');
+      if (card) card.classList.remove('card--error');
+    }
   });
 
   wrapper.appendChild(label);

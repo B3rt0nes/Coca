@@ -90,6 +90,17 @@ function handleRoute() {
       }
       break;
 
+    case '#consensus':
+      if (!isLoggedIn()) {
+        navigate('#login');
+        return;
+      }
+      showView('consensus-view');
+      import('./consensus.js').then(module => {
+        module.loadConsensusView(document.getElementById('consensus-grid'), AppState.capi);
+      });
+      break;
+
     default:
       navigate(isLoggedIn() ? '#dashboard' : '#login');
   }
@@ -254,6 +265,11 @@ function setupDashboardEvents() {
       return;
     }
     navigate('#proposta/new');
+  });
+
+  // Consensus view button
+  document.getElementById('btn-consensus-view')?.addEventListener('click', () => {
+    navigate('#consensus');
   });
 
   // Logout button
@@ -560,6 +576,11 @@ function setupBoardEvents() {
     navigate('#dashboard');
   });
 
+  // Consensus back button
+  document.getElementById('btn-consensus-back')?.addEventListener('click', () => {
+    navigate('#dashboard');
+  });
+
   const sortSelect = document.getElementById('drawer-deck-sort');
   if (sortSelect) {
     sortSelect.addEventListener('change', () => {
@@ -649,6 +670,23 @@ async function handleSaveProposal() {
   if (!titolo) {
     showToast('Inserisci un titolo per la proposta', 'warning');
     titleInput?.focus();
+    return;
+  }
+
+  // Validate that all cards have a role selected
+  let hasMissingRoles = false;
+  document.querySelectorAll('.card--error').forEach(c => c.classList.remove('card--error'));
+  
+  document.querySelectorAll('.drop-zone__cards .card:not(.sortable-ghost)').forEach(card => {
+    const select = card.querySelector('.card__role-dropdown');
+    if (select && (!select.value || select.value === 'Senza ruolo' || select.value === '')) {
+      card.classList.add('card--error');
+      hasMissingRoles = true;
+    }
+  });
+
+  if (hasMissingRoles) {
+    showToast('Impossibile salvare: assegna un ruolo a tutti i capi (evidenziati in rosso)', 'error');
     return;
   }
 

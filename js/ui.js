@@ -204,6 +204,22 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
         </div>
 
         <div class="form-group">
+          <label>Foto <span style="font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 0.75rem; color: var(--text-muted);">(opzionale)</span></label>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <div id="foto-preview-container" style="width: 60px; height: 60px; border-radius: 50%; background: var(--bg-input); border: 2px dashed var(--border-light); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <span id="foto-preview-placeholder" style="font-size: 1.5rem; color: var(--text-muted);">📷</span>
+              <img id="foto-preview-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            </div>
+            <div style="flex: 1;">
+              <input type="file" id="capo-foto-file" accept="image/*" style="display: none;">
+              <button type="button" class="btn btn--secondary btn--small" onclick="document.getElementById('capo-foto-file').click()">Carica Foto</button>
+              <button type="button" class="btn btn--secondary btn--small" id="btn-remove-foto" style="display: none; margin-left: 8px; color: var(--accent-red); border-color: rgba(231,76,60,0.3);">Rimuovi</button>
+            </div>
+          </div>
+          <input type="hidden" id="capo-foto-base64">
+        </div>
+
+        <div class="form-group">
           <label>Sesso</label>
           <div class="radio-group">
             <label class="radio-option">
@@ -285,11 +301,78 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
     cfmGroup.classList.toggle('visible', focaSelect.value === 'CFM');
   });
   
+  // Photo upload and resize logic
+  const fileInput = overlay.querySelector('#capo-foto-file');
+  const previewImg = overlay.querySelector('#foto-preview-img');
+  const previewPlaceholder = overlay.querySelector('#foto-preview-placeholder');
+  const base64Input = overlay.querySelector('#capo-foto-base64');
+  const btnRemoveFoto = overlay.querySelector('#btn-remove-foto');
+
+  const setFotoPreview = (src) => {
+    if (src) {
+      previewImg.src = src;
+      previewImg.style.display = 'block';
+      previewPlaceholder.style.display = 'none';
+      base64Input.value = src;
+      btnRemoveFoto.style.display = 'inline-flex';
+    } else {
+      previewImg.src = '';
+      previewImg.style.display = 'none';
+      previewPlaceholder.style.display = 'block';
+      base64Input.value = '';
+      btnRemoveFoto.style.display = 'none';
+      fileInput.value = '';
+    }
+  };
+
+  btnRemoveFoto.addEventListener('click', () => setFotoPreview(null));
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setFotoPreview(dataUrl);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
   // Populate form if editing
   if (isEditing) {
     overlay.querySelector('#capo-nome').value = capoToEdit.nome || '';
     overlay.querySelector('#capo-cognome').value = capoToEdit.cognome || '';
     overlay.querySelector('#capo-soprannome').value = capoToEdit.soprannome || '';
+    
+    if (capoToEdit.fotoUrl) {
+      setFotoPreview(capoToEdit.fotoUrl);
+    }
     
     if (capoToEdit.sesso) {
       const radio = overlay.querySelector(`input[name="capo-sesso"][value="${capoToEdit.sesso}"]`);
@@ -321,6 +404,7 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
     const nome = overlay.querySelector('#capo-nome').value.trim();
     const cognome = overlay.querySelector('#capo-cognome').value.trim();
     const soprannome = overlay.querySelector('#capo-soprannome').value.trim();
+    const fotoUrl = overlay.querySelector('#capo-foto-base64').value.trim();
     const sesso = overlay.querySelector('input[name="capo-sesso"]:checked')?.value;
     const livelloFoca = focaSelect.value;
     const cfmDettaglio = livelloFoca === 'CFM'
@@ -340,6 +424,7 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
       nome,
       cognome,
       soprannome,
+      fotoUrl,
       sesso,
       livelloFoca,
       cfmDettaglio,

@@ -34,7 +34,7 @@
 
   /* Deck drawer grid */
   .deck-drawer__cards {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   }
 
   /* Toast positioning */
@@ -62,21 +62,27 @@
   /* Dashboard layout */
   .dashboard-content {
     padding: var(--sp-8) var(--sp-6);
+    overflow-x: hidden;
+  }
+
+  .board-header {
+    padding: var(--sp-2);
+    gap: var(--sp-1);
+    flex-wrap: wrap;
   }
 
   .dashboard-grid {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .dashboard-section--proposals {
     grid-column: auto;
   }
 
-  /* Board view: sidebar deck */
   .board-view.active,
   #board-view.active {
     display: grid !important;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 380px;
     grid-template-rows: auto 1fr;
     height: 100vh;
     height: 100dvh;
@@ -131,10 +137,31 @@
 
   .deck-drawer__cards {
     max-height: none;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, 160px) !important;
+    justify-content: center;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+  }
+
+  /* Fixed size for all card grids on desktop to prevent stretching */
+  .drop-zone__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 80px;
+    position: relative;
+    border: 2px dashed var(--border-light);
+    border-radius: var(--radius-md);
+    padding: var(--sp-2);
+    padding-bottom: 60px;
+    background: rgba(0, 0, 0, 0.01);
+  }
+  .consensus-cards-flex,
+  .deck-preview {
+    grid-template-columns: repeat(auto-fill, 160px) !important;
+    justify-content: center;
   }
 
   /* Wider modals */
@@ -154,12 +181,12 @@
   }
 
   .deck-drawer {
-    width: 320px;
+    width: 380px;
   }
 
-  .deck-drawer__cards {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-2);
+  .board-header__left {
+    gap: var(--sp-1);
+    flex-wrap: wrap;
   }
 
   .board-grid {
@@ -172,6 +199,15 @@
    SMALL MOBILE (≤ 480px)
    ══════════════════════════════════════════ */
 @media (max-width: 480px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    gap: var(--sp-4);
+  }
+  .dashboard-content {
+    overflow-x: hidden;
+  }
+
 
   html {
     font-size: 15px;
@@ -198,7 +234,11 @@
   .board-header__right {
     order: 2;
   }
-
+.board-grid {
+  grid-template-columns: 1fr;
+  max-width: 100%;
+  overflow-x: hidden;
+}
   /* Smaller cards in deck */
   .deck-drawer__cards {
     grid-template-columns: 1fr 1fr;
@@ -230,5 +270,22 @@
   /* Login card */
   .login-card {
     padding: var(--sp-8) var(--sp-5);
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--sp-4);
+    max-width: 100%;
+  }
+  .dashboard-grid > * {
+    min-width: 0;
+  }
+  .dashboard-content {
+    padding-left: var(--sp-3);
+    padding-right: var(--sp-3);
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 }

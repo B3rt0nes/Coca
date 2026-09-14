@@ -148,38 +148,142 @@
 }
 
 /* Card layout */
-.card__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-3);
-  width: 100%;
+.card__photo-wrapper {
   position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-bottom: var(--sp-2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.card__sex-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
+.card__photo-large {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--bg-glass);
+  box-shadow: var(--shadow-md);
+  background-color: var(--bg-surface);
+}
+
+.card__photo-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  flex-shrink: 0;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 3px dashed var(--border-light);
 }
 
-.card__sex-icon--m {
+.card__name-row {
+  margin-bottom: var(--sp-2);
+  text-align: center;
+}
+
+.card__name-sub {
+  font-size: 0.75em;
+  opacity: 0.7;
+  font-weight: normal;
+  display: block;
+  margin-top: 2px;
+}
+
+.card__info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-2);
+  width: 100%;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.chip--sex-m {
   background: rgba(58, 143, 212, 0.15);
   color: var(--sex-m);
   border: 1px solid rgba(58, 143, 212, 0.3);
 }
 
-.card__sex-icon--f {
+.chip--sex-f {
   background: rgba(232, 140, 165, 0.15);
   color: var(--sex-f);
   border: 1px solid rgba(232, 140, 165, 0.3);
+}
+
+.card__incarichi-container {
+  width: 100%;
+  text-align: center;
+}
+
+.incarichi-toggle {
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.incarichi-toggle summary {
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.incarichi-toggle summary::-webkit-details-marker {
+  display: none;
+}
+.incarichi-toggle summary::after {
+  content: '▼';
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+}
+.incarichi-toggle[open] summary::after {
+  transform: rotate(180deg);
+}
+.incarichi-toggle[open] summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.incarichi-list {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.card--error {
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.5), 0 0 12px rgba(231, 76, 60, 0.4) !important;
+  animation: shake 0.4s ease-in-out;
+}
+
+.card--error .card__role-dropdown {
+  border-color: var(--accent-red) !important;
+  background-color: rgba(231, 76, 60, 0.1) !important;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .card__name {
@@ -218,20 +322,6 @@
   background: rgba(231, 76, 60, 0.9);
   color: #fff;
   transform: scale(1.1);
-}
-
-.card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: var(--sp-1);
-  margin-bottom: var(--sp-2);
-  width: 100%;
-}
-
-.card__tags:empty {
-  display: none;
 }
 
 /* ── Fo.Ca. Badge ── */

@@ -91,9 +91,14 @@
               <h2 class="dashboard-section__title">
                 📋 Proposte di Staff
               </h2>
-              <button class="btn btn--primary" id="btn-new-proposal">
-                ✚ Nuova Proposta
-              </button>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn--secondary" id="btn-consensus-view" title="Vedi un riassunto di tutte le proposte">
+                  📊 Visione d'Insieme
+                </button>
+                <button class="btn btn--primary" id="btn-new-proposal">
+                  ✚ Nuova Proposta
+                </button>
+              </div>
             </div>
             <div class="proposal-list" id="proposals-list">
               <div class="proposal-list__empty">
@@ -205,6 +210,32 @@
         </div>
       </aside>
 
+    </section>
+
+    <!-- ═══════════════════════════════════
+         CONSENSUS VIEW (Visione d'Insieme)
+         ═══════════════════════════════════ -->
+    <section class="view board-view" id="consensus-view">
+      <!-- Header -->
+      <header class="board-header">
+        <div class="board-header__left">
+          <button class="board-header__back" id="btn-consensus-back" title="Torna alla Dashboard">
+            ← <span class="btn-back-text">Indietro</span>
+          </button>
+          <div style="font-family: var(--font-heading); font-weight: 700; font-size: 1.1rem;">
+            📊 Visione d'Insieme
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Board Area -->
+      <main class="board-content" style="padding: var(--sp-4);">
+        <div class="board-grid" id="consensus-grid">
+          <div style="text-align: center; color: var(--text-muted); margin-top: var(--sp-8);">
+            Caricamento aggregazione...
+          </div>
+        </div>
+      </main>
     </section>
 
   </div>
