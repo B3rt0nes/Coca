@@ -267,6 +267,15 @@ function setupDashboardEvents() {
     navigate('#proposta/new');
   });
 
+  // Edit base year button
+  document.getElementById('btn-edit-base-year')?.addEventListener('click', () => {
+    if (AppState.capi.length === 0) {
+      showToast('Aggiungi almeno un capo al mazzo prima di creare una proposta', 'warning');
+      return;
+    }
+    navigate('#proposta/base-year');
+  });
+
   // Consensus view button
   document.getElementById('btn-consensus-view')?.addEventListener('click', () => {
     navigate('#consensus');
@@ -293,39 +302,83 @@ function setupDashboardEvents() {
 // BOARD VIEW (Create/Edit Proposal)
 // ══════════════════════════════════════════
 
-function initBoardView() {
+function ensureBaseYear(baseYearProposal) {
+  // Se l'anno base è già presente, non facciamo nulla
+  if (AppState.years.some(y => y.isBaseYear)) return;
+
+  if (baseYearProposal && baseYearProposal.assegnazioni && baseYearProposal.assegnazioni.length > 0) {
+    const baseYear = baseYearProposal.assegnazioni[0];
+    AppState.years = [{
+      label: getYearLabel(0),
+      units: baseYear.units || {},
+      isBaseYear: true
+    }];
+  } else {
+    AppState.years = [{ label: getYearLabel(0), units: {}, isBaseYear: true }];
+  }
+}
+
+async function initBoardView() {
   const boardView = document.getElementById('board-view');
   boardView.classList.remove('board-view--readonly');
 
-  // Set title input
-  const titleInput = document.getElementById('board-title');
-  if (titleInput) {
-    titleInput.value = '';
-    titleInput.disabled = false;
-  }
+  setLoading(true);
+  try {
+    // Ensure we have capi data
+    if (AppState.capi.length === 0) {
+      const db = await import('./db.js');
+      AppState.capi = await db.getCapi();
+    }
 
-  // Show save/deck controls
-  document.getElementById('btn-save-proposal')?.classList.remove('hidden');
-  document.getElementById('deck-drawer')?.classList.remove('hidden');
+    // Set title input
+    const titleInput = document.getElementById('board-title');
+    if (titleInput) {
+      titleInput.value = '';
+      titleInput.disabled = false;
+    }
 
-  document.getElementById('drawer-search')?.addEventListener('input', (e) => {
-    AppState.deckFilter = e.target.value;
+    // Show save/deck controls
+    document.getElementById('btn-save-proposal')?.classList.remove('hidden');
+    document.getElementById('deck-drawer')?.classList.remove('hidden');
+
+    document.getElementById('drawer-search')?.addEventListener('input', (e) => {
+      AppState.deckFilter = e.target.value;
+      renderDeckInDrawer();
+      initDragDrop(AppState.capi, onBoardChange);
+    });
+
+    // Init state for new proposal: fetch base-year if available
+    const db = await import('./db.js');
+    const baseYearProposal = await db.getBaseYear();
+
+    ensureBaseYear(baseYearProposal);
+
+    // Se non esiste ancora alcun altro anno, creiamo il secondo anno vuoto (es. Anno 1)
+    if (AppState.years.length === 1) {
+      AppState.years.push({ label: getYearLabel(1), units: {} });
+    }
+
+    // Render the board
+    const boardGrid = document.getElementById('board-grid');
+    renderBoard(boardGrid, AppState.years);
+
+    // Load saved assignments from base year
+    if (baseYearProposal && baseYearProposal.assegnazioni) {
+      loadAssignments([AppState.years[0]], AppState.capi, false);
+    }
+
+    // Render deck in drawer
     renderDeckInDrawer();
+
+    // Initialize drag & drop
     initDragDrop(AppState.capi, onBoardChange);
-  });
 
-  // Init state for new proposal
-  AppState.years = [{ label: getYearLabel(0), units: {} }];
-
-  // Render the board
-  const boardGrid = document.getElementById('board-grid');
-  renderBoard(boardGrid, AppState.years);
-
-  // Render deck in drawer
-  renderDeckInDrawer();
-
-  // Initialize drag & drop
-  initDragDrop(AppState.capi, onBoardChange);
+  } catch(e) {
+    console.error(e);
+    showToast('Errore durante il caricamento.', 'error');
+  } finally {
+    setLoading(false);
+  }
 }
 
 async function loadProposalView(proposalId) {
@@ -334,18 +387,35 @@ async function loadProposalView(proposalId) {
   try {
     // Ensure we have capi data
     if (AppState.capi.length === 0) {
-      AppState.capi = await getCapi();
+      const db = await import('./db.js');
+      AppState.capi = await db.getCapi();
     }
 
-    const proposal = await getProposal(proposalId);
+    const db = await import('./db.js');
+    let proposal = null;
+
+    if (proposalId === 'base-year') {
+      proposal = await db.getBaseYear();
+      if (!proposal) {
+        proposal = {
+          id: 'base-year',
+          titolo: 'Organico Attuale (Anno di Base)',
+          autore: getUsername(),
+          assegnazioni: [{ label: 'Anno in corso (Base)', isBaseYear: true, units: {} }]
+        };
+      }
+    } else {
+      proposal = await db.getProposal(proposalId);
+    }
+
     if (!proposal) {
       showToast('Proposta non trovata', 'error');
       navigate('#dashboard');
       return;
     }
 
-    AppState.currentProposalId = proposalId;
-    const isOwn = proposal.autore === getUsername();
+    AppState.currentProposalId = proposal.id;
+    const isOwn = proposal.autore === getUsername() || proposal.id === 'base-year';
     AppState.isReadonly = !isOwn;
 
     const boardView = document.getElementById('board-view');
@@ -491,7 +561,7 @@ window.deleteYear = async function(yearIndex) {
   if (!confirm) return;
   
   // Save current board state first (before removing)
-  AppState.years = collectAssignments(AppState.capi, AppState.years.length);
+  AppState.years = collectAssignments(AppState.capi, AppState.years);
   
   // Remove the specified year
   AppState.years.splice(yearIndex, 1);
@@ -601,7 +671,8 @@ function setupBoardEvents() {
       if (AppState.isReadonly) return;
       
       // Save current board state first before re-rendering
-      AppState.years = collectAssignments(AppState.capi, AppState.years.length);
+      // Passiamo AppState.years come array per conservare label e isBaseYear
+      AppState.years = collectAssignments(AppState.capi, AppState.years);
       
       // Add a new empty year
       const newYearIndex = AppState.years.length;
@@ -620,24 +691,31 @@ function setupBoardEvents() {
     });
   }
 
-  // Add dummy capo button
-  const btnAddDummy = document.getElementById('btn-add-dummy');
-  if (btnAddDummy) {
-    btnAddDummy.addEventListener('click', () => {
+  // Add new entry button
+  const btnNewEntry = document.getElementById('btn-drawer-new-entry');
+  if (btnNewEntry) {
+    btnNewEntry.addEventListener('click', () => {
       if (AppState.isReadonly) return;
-      const dummyId = `new-entry-${Date.now()}`;
-      AppState.capi.push({
-        id: dummyId,
-        nome: 'Nuovo',
-        cognome: 'Entrato',
-        sesso: 'M', // Default
-        livelloFoca: 'Nulla',
-        altriIncarichi: ['Nessuno'],
-        isDummy: true
+      import('./ui.js').then(({ showNewEntryModal }) => {
+        showNewEntryModal((comment) => {
+          const dummyId = `new-entry-${Date.now()}`;
+          AppState.capi.push({
+            id: dummyId,
+            nome: comment,
+            cognome: '', // or omit, but it's fine
+            soprannome: comment, // to show it as the main name
+            sesso: 'M',
+            livelloFoca: 'Nulla',
+            altriIncarichi: ['Nessuno'],
+            isDummy: true
+          });
+          renderDeckInDrawer();
+          initDragDrop(AppState.capi, onBoardChange);
+          import('./ui.js').then(({ showToast }) => {
+            showToast('Nuovo ingresso aggiunto al mazzo', 'success', 2000);
+          });
+        });
       });
-      renderDeckInDrawer();
-      initDragDrop(AppState.capi, onBoardChange);
-      showToast('Nuovo entrato aggiunto al mazzo', 'success', 2000);
     });
   }
 
@@ -691,7 +769,7 @@ async function handleSaveProposal() {
   }
 
   // Collect assignments from the board (array of years)
-  const assegnazioni = collectAssignments(AppState.capi, AppState.years.length);
+  const assegnazioni = collectAssignments(AppState.capi, AppState.years);
 
   // Validation currently only runs on the FIRST year or flat format.
   // We'll validate all years, merging the warnings.
@@ -727,12 +805,19 @@ async function handleSaveProposal() {
     };
 
     if (AppState.currentProposalId) {
-      // Update existing
-      await import('./db.js').then(db => db.updateProposal(AppState.currentProposalId, proposalData));
-      showToast('Proposta aggiornata! ✅', 'success');
+      if (AppState.currentProposalId === 'base-year') {
+        // Update base-year
+        await import('./db.js').then(db => db.saveBaseYear(proposalData));
+        showToast('Organico attuale salvato! ✅', 'success');
+      } else {
+        // Update existing
+        await import('./db.js').then(db => db.updateProposal(AppState.currentProposalId, proposalData));
+        showToast('Proposta aggiornata! ✅', 'success');
+      }
     } else {
       // Create new
-      const id = await saveProposal(proposalData);
+      const db = await import('./db.js');
+      const id = await db.saveProposal(proposalData);
       AppState.currentProposalId = id;
       showToast('Proposta salvata! 🎉', 'success');
     }

@@ -85,6 +85,26 @@ export function initDragDrop(capi, onBoardChange) {
       fallbackOnBody: true,
       fallbackTolerance: 5,
 
+      onMove: function(evt) {
+        const capoId = evt.dragged.dataset.capoId;
+        const targetZone = evt.to;
+        if (!targetZone || !targetZone.classList.contains('drop-zone-list')) return true;
+
+        const targetYearIndex = targetZone.dataset.yearIndex;
+        
+        // Se stiamo spostando la carta all'interno dello stesso anno, permettiamolo
+        if (evt.from.dataset && evt.from.dataset.yearIndex === targetYearIndex) {
+          return true;
+        }
+
+        // Altrimenti, controlliamo se esiste già una carta con lo stesso capoId in questo anno
+        const existing = document.querySelector(`.drop-zone-list[data-year-index="${targetYearIndex}"] .card[data-capo-id="${capoId}"]`);
+        if (existing && existing !== evt.dragged) {
+          return false; // Blocca il drop
+        }
+        return true;
+      },
+
       onAdd: function(evt) {
         const card = evt.item;
         

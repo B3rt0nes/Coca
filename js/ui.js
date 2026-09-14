@@ -442,6 +442,55 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
 
 
 // ══════════════════════════════════════════
+// NEW ENTRY MODAL
+// ══════════════════════════════════════════
+
+/**
+ * Show a modal to create a quick "New Entry" dummy capo
+ * @param {Function} onSubmit - Called with the comment string
+ */
+export function showNewEntryModal(onSubmit) {
+  const overlay = ensureModalOverlay();
+  
+  overlay.innerHTML = `
+    <div class="modal" style="max-width: 400px;">
+      <h3 class="modal__title">➕ Nuovo Ingresso</h3>
+      <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-secondary);">
+        Inserisci un breve commento per identificare il nuovo ingresso (es. "Studente Padova", "Capo da altra zona").
+      </p>
+      <form id="new-entry-form">
+        <div class="form-group">
+          <input type="text" class="form-input" id="entry-comment" placeholder="Breve descrizione..." required maxlength="30">
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--secondary" id="btn-cancel-entry">Annulla</button>
+          <button type="submit" class="btn btn--primary">Aggiungi al Mazzo</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const btnCancel = overlay.querySelector('#btn-cancel-entry');
+  btnCancel.addEventListener('click', hideModal);
+
+  const form = overlay.querySelector('#new-entry-form');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const comment = overlay.querySelector('#entry-comment').value.trim();
+    if (!comment) return;
+    
+    onSubmit(comment);
+    hideModal();
+  });
+
+  requestAnimationFrame(() => {
+    overlay.classList.add('active');
+    overlay.querySelector('#entry-comment').focus();
+  });
+}
+
+
+// ══════════════════════════════════════════
 // LOADING INDICATOR
 // ══════════════════════════════════════════
 

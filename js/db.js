@@ -4,7 +4,7 @@
 
 import { db } from './firebase-config.js';
 import {
-  collection, addDoc, getDocs, getDoc, deleteDoc, doc,
+  collection, addDoc, getDocs, getDoc, deleteDoc, doc, setDoc,
   onSnapshot, updateDoc, serverTimestamp, query, orderBy
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
@@ -128,7 +128,9 @@ export async function updateProposal(id, data) {
 export async function getProposals() {
   const q = query(proposteRef, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(p => p.id !== 'base-year');
 }
 
 /**
@@ -139,11 +141,36 @@ export async function getProposals() {
 export function onProposalsChange(callback) {
   const q = query(proposteRef, orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snapshot) => {
-    const proposals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const proposals = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(p => p.id !== 'base-year');
     callback(proposals);
   }, (error) => {
     console.error('Error listening to proposals:', error);
   });
+}
+
+/**
+ * Save or update the base year proposal
+ * @param {Object} proposalData 
+ */
+export async function saveBaseYear(proposalData) {
+  await setDoc(doc(db, 'proposte', 'base-year'), {
+    ...proposalData,
+    isBaseYear: true,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
+ * Get the base year proposal
+ */
+export async function getBaseYear() {
+  const docSnap = await getDoc(doc(db, 'proposte', 'base-year'));
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() };
+  }
+  return null;
 }
 
 /**

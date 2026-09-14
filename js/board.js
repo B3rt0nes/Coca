@@ -142,7 +142,9 @@ export function getYearLabel(index) {
   if (now.getMonth() < 8) {
     startYear -= 1;
   }
-  startYear += index;
+  
+  // Il base-year (index = 0) è l'anno in chiusura (quindi startYear - 1)
+  startYear = startYear - 1 + index;
   
   const yy1 = startYear.toString().slice(-2);
   const yy2 = (startYear + 1).toString().slice(-2);
@@ -162,12 +164,17 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
     section.className = 'year-section';
     
     // Check if there's more than 1 year to show delete button
-    const deleteBtnHTML = years.length > 1 && window.deleteYear && !window.isBoardReadonly()
-      ? `<button class="btn btn--danger btn--small year-header__delete" data-year="${yearIndex}" title="Elimina Anno">🗑️</button>` 
+    // Show delete only for years beyond the first two (base + next year)
+    const deleteBtnHTML = years.length > 2 && yearIndex > 1 && window.deleteYear && !window.isBoardReadonly()
+      ? `<button class="btn btn--danger btn--small year-header__delete" data-year="${yearIndex}" title="Elimina Anno">🗑️</button>`
       : '';
 
     const header = document.createElement('div');
     header.className = 'year-header';
+    
+    // Close base year by default
+    const isClosed = year.isBaseYear;
+    
     header.innerHTML = `
       <div class="year-header__title">
         <span>📅</span>
@@ -175,13 +182,13 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
         ${deleteBtnHTML}
-        <div class="year-header__toggle">▼</div>
+        <div class="year-header__toggle">${isClosed ? '▶' : '▼'}</div>
       </div>
     `;
     
     const body = document.createElement('div');
     body.className = 'year-body';
-    body.style.display = 'grid'; // Default open
+    body.style.display = isClosed ? 'none' : 'grid';
     
     header.addEventListener('click', (e) => {
       // Don't toggle if they clicked the delete button
@@ -345,10 +352,13 @@ export function updateUnitCount(unitId, yearIndex) {
 /**
  * Collect all assignments from the board
  * @param {Array} capi - Full capi list for reference
- * @param {number} yearsCount - How many years are on the board
+ * @param {number|Array} yearsDataOrCount - Number of years, or array of existing years objects (to preserve labels/flags)
  * @returns {Array} [{ label: 'Anno 1', units: { unitId: [{ capoId, ruolo }] } }]
  */
-export function collectAssignments(capi, yearsCount = 1) {
+export function collectAssignments(capi, yearsDataOrCount = 1) {
+  const yearsCount = typeof yearsDataOrCount === 'number' ? yearsDataOrCount : yearsDataOrCount.length;
+  const oldYears = Array.isArray(yearsDataOrCount) ? yearsDataOrCount : [];
+  
   const yearsData = [];
 
   for (let y = 0; y < yearsCount; y++) {
@@ -369,12 +379,60 @@ export function collectAssignments(capi, yearsCount = 1) {
       });
     }
     yearsData.push({
-      label: getYearLabel(y),
+      label: oldYears[y]?.label || getYearLabel(y),
+      isBaseYear: oldYears[y]?.isBaseYear || false,
       units: assignments
     });
   }
 
   return yearsData;
+}
+
+/**
+ * Initialize the board view, loading base year and adding a second empty year
+ */
+export async function initBoardView() {
+  // Init state for new proposal: fetch base-year if available
+  const db = await import('./db.js');
+  const baseYearProposal = await db.getBaseYear();
+
+  if (baseYearProposal && baseYearProposal.assegnazioni && baseYearProposal.assegnazioni.length > 0) {
+    const baseYear = baseYearProposal.assegnazioni[0]; // Prendi solo il primo anno
+    AppState.years = [
+      {
+        label: 'Anno in corso (Base)',
+        units: baseYear.units || {},
+        isBaseYear: true
+      },
+      // New empty year ready for editing
+      {
+        label: getYearLabel(1),
+        units: {},
+        isBaseYear: false
+      }
+    ];
+  } else {
+    // No base-year yet: create base (closed) and next empty year
+    AppState.years = [
+      { label: getYearLabel(0), units: {}, isBaseYear: true },
+      { label: getYearLabel(1), units: {}, isBaseYear: false }
+    ];
+  }
+
+  // Render the board
+  const boardGrid = document.getElementById('board-grid');
+  renderBoard(boardGrid, AppState.years);
+
+  // Load saved assignments from base year if present
+  if (baseYearProposal && baseYearProposal.assegnazioni) {
+    loadAssignments([AppState.years[0]], AppState.capi, false);
+  }
+
+  // Render deck in drawer
+  renderDeckInDrawer();
+
+  // Initialize drag & drop
+  initDragDrop(AppState.capi, onBoardChange);
 }
 
 /**

@@ -101,6 +101,11 @@
   margin: 0 auto;
 }
 
+#board-grid {
+  display: flex;
+  flex-direction: column;
+}
+
 @media (max-width: 480px) {
   /* Commenting out to keep 2 columns on all devices as requested
   .drop-zone__cards {

@@ -172,23 +172,21 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name', assign
   filtered = sortCapi(filtered, sortBy);
 
   const availableCapi = filtered.filter(c => !assignedIds.has(c.id));
+  const assignedCapi = filtered.filter(c => assignedIds.has(c.id));
 
-  if (availableCapi.length === 0) {
-    const allAssigned = capi.length > 0 && capi.every(c => assignedIds.has(c.id));
+  if (availableCapi.length === 0 && assignedCapi.length === 0) {
     container.innerHTML = `
       <div class="deck-drawer__empty">
         ${capi.length === 0
           ? '🃏 Il mazzo è vuoto. Aggiungi dei capi dalla Dashboard!'
-          : allAssigned
-            ? '✅ Tutti i capi sono stati assegnati!'
-            : '🔍 Nessun capo trovato per questa ricerca.'
+          : '🔍 Nessun capo trovato per questa ricerca.'
         }
       </div>
     `;
     return;
   }
 
-  // Render only available (unassigned) capi
+  // Render available (unassigned) capi
   availableCapi.forEach(capo => {
     const card = createCardElement(capo);
     card.addEventListener('click', () => {
@@ -199,6 +197,32 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name', assign
     }
     container.appendChild(card);
   });
+
+  // Render assigned (già in servizio) capi
+  if (assignedCapi.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'deck-drawer__divider';
+    divider.innerHTML = '<span>Già in servizio</span>';
+    divider.style.width = '100%';
+    divider.style.textAlign = 'center';
+    divider.style.margin = '16px 0 8px 0';
+    divider.style.fontWeight = 'bold';
+    divider.style.color = 'var(--text-secondary)';
+    divider.style.fontSize = '0.9rem';
+    divider.style.gridColumn = '1 / -1';
+    container.appendChild(divider);
+
+    assignedCapi.forEach(capo => {
+      const card = createCardElement(capo);
+      card.addEventListener('click', () => {
+        if (window.selectCapo) window.selectCapo(capo.id);
+      });
+      if (window.getSelectedCapoId && window.getSelectedCapoId() === capo.id) {
+        card.classList.add('card--selected');
+      }
+      container.appendChild(card);
+    });
+  }
 }
 
 /**
