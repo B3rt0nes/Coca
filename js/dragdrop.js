@@ -67,12 +67,14 @@ export function initDragDrop(capi, onBoardChange) {
   dropZones.forEach(zoneEl => {
     const unitId = zoneEl.dataset.unitId;
     const yearIndex = zoneEl.dataset.yearIndex;
+    const dropZoneContainer = zoneEl.closest('.drop-zone');
+    const isReadonly = dropZoneContainer && dropZoneContainer.dataset.readonly === 'true';
 
     const zoneSortable = new Sortable(zoneEl, {
       group: {
         name: 'coca-cards',
-        pull: true,
-        put: true
+        pull: !isReadonly,
+        put: !isReadonly
       },
       animation: 200,
       ghostClass: 'sortable-ghost',

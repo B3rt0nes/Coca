@@ -498,10 +498,16 @@ function renderDeckInDrawer() {
   const container = document.getElementById('deck-cards');
   if (!container) return;
 
-  // Collect currently assigned IDs
+  // Collect currently assigned IDs, excluding those in the base year
   const assignedIds = new Set();
-  document.querySelectorAll('.board-grid .card').forEach(card => {
-    if (card.dataset.capoId) assignedIds.add(card.dataset.capoId);
+  document.querySelectorAll('.board-grid .drop-zone').forEach(zone => {
+    const yearIndex = parseInt(zone.dataset.yearIndex, 10);
+    if (AppState.years[yearIndex] && AppState.years[yearIndex].isBaseYear) {
+      return; // Ignora i capi del base year (non vanno in "Già in servizio")
+    }
+    zone.querySelectorAll('.card').forEach(card => {
+      if (card.dataset.capoId) assignedIds.add(card.dataset.capoId);
+    });
   });
 
   const sortVal = document.getElementById('drawer-deck-sort')?.value || 'name';

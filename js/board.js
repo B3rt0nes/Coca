@@ -172,8 +172,8 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
     const header = document.createElement('div');
     header.className = 'year-header';
     
-    // Close base year by default
-    const isClosed = year.isBaseYear;
+    // Close base year by default or respect saved state
+    const isClosed = year.isClosed !== undefined ? year.isClosed : year.isBaseYear;
     
     header.innerHTML = `
       <div class="year-header__title">
@@ -199,22 +199,31 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
       const isOpen = body.style.display === 'grid';
       body.style.display = isOpen ? 'none' : 'grid';
       header.querySelector('.year-header__toggle').textContent = isOpen ? '▶' : '▼';
+      year.isClosed = isOpen;
     });
     
-    BRANCHES.forEach(branch => {
+    BRANCHES.forEach((branch, branchIndex) => {
       const branchSec = document.createElement('div');
       branchSec.className = `branch-section ${branch.cssClass}`;
+      
+      const isBranchClosed = year.branchToggles && year.branchToggles[branchIndex];
 
       const unitsHTML = branch.units.map(unitId => {
         const unit = UNITS[unitId];
+        const isUnitClosed = year.unitToggles && year.unitToggles[unitId];
+        const collapsedClass = isUnitClosed ? ' drop-zone--collapsed' : '';
+        const toggleIcon = isUnitClosed ? '▶' : '▼';
+        
+        const readonlyAttr = year.isBaseYear ? ' data-readonly="true"' : '';
+        
         return `
-          <div class="drop-zone" data-unit-id="${unitId}" data-year-index="${yearIndex}">
+          <div class="drop-zone${collapsedClass}" data-unit-id="${unitId}" data-year-index="${yearIndex}"${readonlyAttr}>
             <div class="drop-zone__header" style="cursor: pointer; display: flex; justify-content: space-between;">
               <div>
                 <span class="drop-zone__name">${unit.icon} ${unit.name}</span>
                 <span class="drop-zone__count" data-count-for="${unitId}" data-year-index="${yearIndex}">0 capi</span>
               </div>
-              <div class="unit-toggle">▼</div>
+              <div class="unit-toggle">${toggleIcon}</div>
             </div>
             <div class="drop-zone__cards drop-zone-list" id="zone-${yearIndex}-${unitId}" data-unit-id="${unitId}" data-year-index="${yearIndex}"></div>
           </div>
@@ -227,9 +236,9 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
             <span class="branch-header__icon">${branch.icon}</span>
             ${branch.name}
           </div>
-          <div class="branch-toggle">▼</div>
+          <div class="branch-toggle">${isBranchClosed ? '▶' : '▼'}</div>
         </div>
-        <div class="branch-units">${unitsHTML}</div>
+        <div class="branch-units" style="${isBranchClosed ? 'display: none;' : ''}">${unitsHTML}</div>
       `;
 
       // Branch Toggle Logic
@@ -239,6 +248,9 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
         const isHidden = branchUnits.style.display === 'none';
         branchUnits.style.display = isHidden ? '' : 'none';
         branchHeader.querySelector('.branch-toggle').textContent = isHidden ? '▼' : '▶';
+        
+        if (!year.branchToggles) year.branchToggles = {};
+        year.branchToggles[branchIndex] = !isHidden;
       });
 
       // Unit Toggle Logic
@@ -248,6 +260,10 @@ export function renderBoard(container, years = [{ label: getYearLabel(0) }]) {
           zone.classList.toggle('drop-zone--collapsed');
           const isCollapsed = zone.classList.contains('drop-zone--collapsed');
           unitHeader.querySelector('.unit-toggle').textContent = isCollapsed ? '▶' : '▼';
+          
+          const unitId = zone.dataset.unitId;
+          if (!year.unitToggles) year.unitToggles = {};
+          year.unitToggles[unitId] = isCollapsed;
         });
       });
 
@@ -363,6 +379,10 @@ export function collectAssignments(capi, yearsDataOrCount = 1) {
 
   for (let y = 0; y < yearsCount; y++) {
     const assignments = {};
+    const unitToggles = oldYears[y]?.unitToggles || {};
+    const branchToggles = oldYears[y]?.branchToggles || {};
+    let isClosed = oldYears[y]?.isClosed !== undefined ? oldYears[y].isClosed : (oldYears[y]?.isBaseYear || false);
+    
     for (const unitId of Object.keys(UNITS)) {
       const zone = document.getElementById(`zone-${y}-${unitId}`);
       if (!zone) {
@@ -381,6 +401,9 @@ export function collectAssignments(capi, yearsDataOrCount = 1) {
     yearsData.push({
       label: oldYears[y]?.label || getYearLabel(y),
       isBaseYear: oldYears[y]?.isBaseYear || false,
+      isClosed: isClosed,
+      branchToggles: branchToggles,
+      unitToggles: unitToggles,
       units: assignments
     });
   }
@@ -461,17 +484,19 @@ export function loadAssignments(assegnazioni, capi, readonly = false) {
 
       zone.innerHTML = '';
 
+      const isYearReadonly = readonly || year.isBaseYear;
+
       assignments.forEach(assignment => {
         const capo = capiMap[assignment.capoId];
         if (!capo) return;
 
         const card = createCardElement(capo, {
-          showRemove: !readonly,
-          readonly
+          showRemove: !isYearReadonly,
+          readonly: isYearReadonly
         });
 
         // Add role select
-        const roleSelect = createRoleSelect(unitId, assignment.ruolo, readonly);
+        const roleSelect = createRoleSelect(unitId, assignment.ruolo, isYearReadonly);
         card.appendChild(roleSelect);
 
         zone.appendChild(card);
