@@ -25,8 +25,8 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .branch-section--coca {
-    grid-column: 1 / -1;
+  .branch-section--coca .branch-units {
+    grid-template-columns: 1fr;
   }
 
   .branch-units {

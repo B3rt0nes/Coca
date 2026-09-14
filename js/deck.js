@@ -130,7 +130,7 @@ function sortCapi(capi, sortBy) {
  * @param {string} filter - Optional search filter
  * @param {string} sortBy - Sort order (name, foca, sex)
  */
-export function renderDeck(container, capi, filter = '', sortBy = 'name') {
+export function renderDeck(container, capi, filter = '', sortBy = 'name', assignedIds = new Set()) {
   container.innerHTML = '';
 
   let filtered = capi;
@@ -145,7 +145,10 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name') {
 
   filtered = sortCapi(filtered, sortBy);
 
-  if (filtered.length === 0) {
+  const availableCapi = filtered.filter(c => !assignedIds.has(c.id));
+  const assignedCapi = filtered.filter(c => assignedIds.has(c.id));
+
+  if (availableCapi.length === 0 && assignedCapi.length === 0) {
     container.innerHTML = `
       <div class="deck-drawer__empty">
         ${capi.length === 0
@@ -157,10 +160,46 @@ export function renderDeck(container, capi, filter = '', sortBy = 'name') {
     return;
   }
 
-  filtered.forEach(capo => {
+  // Render available capi
+  availableCapi.forEach(capo => {
     const card = createCardElement(capo);
+    card.addEventListener('click', () => {
+      if (window.selectCapo) window.selectCapo(capo.id);
+    });
+    if (window.getSelectedCapoId && window.getSelectedCapoId() === capo.id) {
+      card.classList.add('card--selected');
+    }
     container.appendChild(card);
   });
+
+  // Render assigned capi with a divider
+  if (assignedCapi.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'deck-drawer__divider';
+    divider.innerHTML = `<span>Già assegnati (${assignedCapi.length})</span>`;
+    // We want the divider to span the full grid width
+    divider.style.gridColumn = '1 / -1';
+    divider.style.textAlign = 'center';
+    divider.style.padding = 'var(--sp-4) 0 var(--sp-2)';
+    divider.style.color = 'var(--text-muted)';
+    divider.style.fontSize = '0.9rem';
+    divider.style.borderBottom = '1px solid var(--border-light)';
+    divider.style.marginBottom = 'var(--sp-2)';
+    
+    container.appendChild(divider);
+
+    assignedCapi.forEach(capo => {
+      const card = createCardElement(capo);
+      card.classList.add('card--assigned');
+      card.addEventListener('click', () => {
+        if (window.selectCapo) window.selectCapo(capo.id);
+      });
+      if (window.getSelectedCapoId && window.getSelectedCapoId() === capo.id) {
+        card.classList.add('card--selected');
+      }
+      container.appendChild(card);
+    });
+  }
 }
 
 /**

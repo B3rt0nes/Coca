@@ -167,6 +167,18 @@ export function renderBoard(container) {
     `;
 
     container.appendChild(section);
+
+    // Add tap-to-place logic for drop zones
+    branch.units.forEach(unitId => {
+      const zone = section.querySelector(`.drop-zone[data-unit-id="${unitId}"]`);
+      if (zone) {
+        zone.addEventListener('click', (e) => {
+          // Ignore clicks inside existing cards (to allow role dropdown interaction)
+          if (e.target.closest('.card')) return;
+          if (window.assignSelectedCapo) window.assignSelectedCapo(unitId);
+        });
+      }
+    });
   });
 }
 

@@ -5,8 +5,8 @@
 
 import { getUsername, setUsername, logout, isLoggedIn } from './auth.js';
 import { addCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
-import { renderDeck, renderDeckPreview } from './deck.js';
-import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS } from './board.js';
+import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
+import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect } from './board.js';
 import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
 import { validateProposal } from './validation.js';
 import { showToast, showModal, hideModal, showConfirm, showWarningConfirm, showAddCapoModal, setLoading } from './ui.js';
@@ -21,6 +21,7 @@ const AppState = {
   currentView: 'login',
   currentProposalId: null,
   isReadonly: false,
+  selectedCapoId: null,
   unsubscribeCapi: null,
   unsubscribeProposals: null,
   deckFilter: '',
@@ -288,6 +289,12 @@ function initBoardView() {
   document.getElementById('btn-save-proposal')?.classList.remove('hidden');
   document.getElementById('deck-drawer')?.classList.remove('hidden');
 
+  document.getElementById('drawer-search')?.addEventListener('input', (e) => {
+    AppState.deckFilter = e.target.value;
+    renderDeckInDrawer();
+    initDragDrop(AppState.capi, onBoardChange);
+  });
+
   // Render the board
   const boardGrid = document.getElementById('board-grid');
   renderBoard(boardGrid);
@@ -297,9 +304,6 @@ function initBoardView() {
 
   // Initialize drag & drop
   initDragDrop(AppState.capi, onBoardChange);
-
-  // Setup drawer toggle
-  setupDrawer();
 }
 
 async function loadProposalView(proposalId) {
@@ -355,7 +359,6 @@ async function loadProposalView(proposalId) {
       renderDeckInDrawer();
       initDragDrop(AppState.capi, onBoardChange);
       reattachRoleListeners(onBoardChange);
-      setupDrawer();
     }
 
   } catch (err) {
@@ -371,8 +374,14 @@ function renderDeckInDrawer() {
   const container = document.getElementById('deck-cards');
   if (!container) return;
 
+  // Collect currently assigned IDs
+  const assignedIds = new Set();
+  document.querySelectorAll('.board-grid .card').forEach(card => {
+    if (card.dataset.capoId) assignedIds.add(card.dataset.capoId);
+  });
+
   const sortVal = document.getElementById('drawer-deck-sort')?.value || 'name';
-  renderDeck(container, AppState.capi, AppState.deckFilter, sortVal);
+  renderDeck(container, AppState.capi, AppState.deckFilter, sortVal, assignedIds);
 
   // Update deck count
   const countEl = document.getElementById('drawer-deck-count');
@@ -384,62 +393,72 @@ function renderDeckInDrawer() {
 function onBoardChange() {
   // Update multi-incarico highlights
   updateMultiIncarico();
+  
+  // Re-render deck to update assigned vs available lists
+  renderDeckInDrawer();
+  
+  // Re-init sortable on deck since DOM changed
+  initDragDrop(AppState.capi, onBoardChange);
 }
 
-function setupDrawer() {
-  const drawer = document.getElementById('deck-drawer');
-  const handle = document.getElementById('drawer-handle');
-  const searchInput = document.getElementById('drawer-search');
-
-  if (!drawer || !handle) return;
-
-  // Start collapsed on mobile
-  if (window.innerWidth < 1024) {
-    drawer.classList.add('deck-drawer--collapsed');
-    AppState.drawerCollapsed = true;
+// Global selection handler for tap-to-place
+window.selectCapo = function(capoId) {
+  if (AppState.isReadonly) return;
+  if (AppState.selectedCapoId === capoId) {
+    AppState.selectedCapoId = null;
   } else {
-    drawer.classList.remove('deck-drawer--collapsed');
-    AppState.drawerCollapsed = false;
+    AppState.selectedCapoId = capoId;
   }
+  renderDeckInDrawer();
+};
 
-  // Toggle drawer (prevent duplicate listeners)
-  if (!drawer.dataset.listenerAttached) {
-    const toggleDrawer = () => {
-      AppState.drawerCollapsed = !AppState.drawerCollapsed;
-      drawer.classList.toggle('deck-drawer--collapsed', AppState.drawerCollapsed);
-    };
-    
-    handle.addEventListener('click', toggleDrawer);
-    
-    const header = document.querySelector('.deck-drawer__header');
-    if (header) {
-      header.addEventListener('click', toggleDrawer);
-      header.style.cursor = 'pointer';
-    }
-    
-    drawer.dataset.listenerAttached = 'true';
+window.getSelectedCapoId = function() {
+  return AppState.selectedCapoId;
+};
+
+window.clearSelectedCapo = function() {
+  AppState.selectedCapoId = null;
+  renderDeckInDrawer();
+};
+
+window.assignSelectedCapo = function(unitId) {
+  if (AppState.isReadonly) return;
+  const capoId = window.getSelectedCapoId();
+  if (!capoId) return;
+
+  const capo = AppState.capi.find(c => c.id === capoId);
+  if (!capo) return;
+
+  const zone = document.getElementById(`zone-${unitId}`);
+  if (!zone) return;
+
+  // Check if card is already on the board in another unit
+  let card = document.querySelector(`.board-grid .card[data-capo-id="${capoId}"]`);
+  
+  if (card) {
+    zone.appendChild(card);
+  } else {
+    card = createCardElement(capo);
+    zone.appendChild(card);
   }
-
-  // Search
-  if (searchInput) {
-    searchInput.value = '';
-    searchInput.addEventListener('input', (e) => {
-      AppState.deckFilter = e.target.value;
-      renderDeckInDrawer();
-      // Re-init sortable on deck since DOM changed
-      initDragDrop(AppState.capi, onBoardChange);
+  
+  // Remove old role select
+  const oldRole = card.querySelector('.card__role-select');
+  if (oldRole) oldRole.remove();
+  
+  const roleSelect = createRoleSelect(unitId);
+  card.appendChild(roleSelect);
+  
+  const select = card.querySelector('.card__role-dropdown');
+  if (select) {
+    select.addEventListener('change', () => {
+      onBoardChange();
     });
   }
-
-  // Sort
-  const sortSelect = document.getElementById('drawer-deck-sort');
-  if (sortSelect) {
-    sortSelect.addEventListener('change', () => {
-      renderDeckInDrawer();
-      initDragDrop(AppState.capi, onBoardChange);
-    });
-  }
-}
+  
+  window.clearSelectedCapo();
+  onBoardChange();
+};
 
 function setupBoardEvents() {
   // Back button
@@ -447,6 +466,14 @@ function setupBoardEvents() {
     destroyDragDrop();
     navigate('#dashboard');
   });
+
+  const sortSelect = document.getElementById('drawer-deck-sort');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', () => {
+      renderDeckInDrawer();
+      initDragDrop(AppState.capi, onBoardChange);
+    });
+  }
 
   // Save proposal button
   document.getElementById('btn-save-proposal')?.addEventListener('click', async () => {

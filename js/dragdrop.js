@@ -27,6 +27,7 @@ export function initDragDrop(capi, onBoardChange) {
         put: false       // Don't allow dropping back into deck
       },
       sort: false,        // Don't sort within deck
+      filter: '.deck-drawer__divider', // Don't drag the divider
       animation: 200,
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
