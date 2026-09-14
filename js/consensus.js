@@ -242,8 +242,8 @@ function createConsensusCard(capo, roleCounts, total) {
   }
 
   const displayNameHTML = capo.soprannome
-    ? `<span style="font-weight: 700;">${capo.soprannome}</span><br><span style="font-size: 0.75em; opacity: 0.7; font-weight: normal;">${capo.nome} ${capo.cognome}</span>`
-    : `<span style="font-weight: 700;">${capo.nome} ${capo.cognome}</span>`;
+    ? `<span style="font-weight: 700;">${capo.soprannome}</span>`
+    : `<span style="font-weight: 700;">${capo.nome}${capo.hasDuplicateName ? ` ${capo.cognome}` : ''}</span>`;
 
   card.innerHTML = `
     <div class="card__header" style="align-items: flex-start; gap: 8px;">

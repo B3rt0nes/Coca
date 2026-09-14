@@ -29,6 +29,24 @@ export async function addCapo(capoData) {
   return docRef.id;
 }
 
+function tagDuplicateNames(capi) {
+  const nameCounts = new Map();
+  capi.forEach(c => {
+    if (!c.nome) return;
+    const name = c.nome.trim().toLowerCase();
+    nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+  });
+  capi.forEach(c => {
+    if (!c.nome) {
+      c.hasDuplicateName = false;
+      return;
+    }
+    const name = c.nome.trim().toLowerCase();
+    c.hasDuplicateName = nameCounts.get(name) > 1;
+  });
+  return capi;
+}
+
 /**
  * Get all Capi (one-time fetch)
  * @returns {Array} Array of { id, ...data }
@@ -36,7 +54,8 @@ export async function addCapo(capoData) {
 export async function getCapi() {
   const q = query(capiRef, orderBy('cognome', 'asc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const capi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return tagDuplicateNames(capi);
 }
 
 /**
@@ -48,7 +67,7 @@ export function onCapiChange(callback) {
   const q = query(capiRef, orderBy('cognome', 'asc'));
   return onSnapshot(q, (snapshot) => {
     const capi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(capi);
+    callback(tagDuplicateNames(capi));
   }, (error) => {
     console.error('Error listening to capi:', error);
   });

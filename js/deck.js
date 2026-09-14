@@ -99,8 +99,10 @@ export function createCardElement(capo, options = {}) {
   }
 
   const displayNameHTML = capo.soprannome
-    ? `${capo.soprannome} <span class="card__name-sub">(${capo.nome} ${capo.cognome})</span>`
-    : `${capo.cognome} ${capo.nome}`;
+    ? `${capo.soprannome}`
+    : capo.hasDuplicateName
+      ? `${capo.nome} ${capo.cognome}`
+      : `${capo.nome}`;
 
   card.innerHTML = `
     <div class="card__photo-wrapper">

@@ -72,11 +72,18 @@
   }
 
   .dashboard-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
   }
 
   .dashboard-section--proposals {
-    grid-column: auto;
+    grid-column: 1 / 2;
+    grid-row: 1;
+  }
+
+  .dashboard-section:not(.dashboard-section--proposals) {
+    grid-column: 2 / 3;
+    grid-row: 1;
   }
 
   .board-view.active,
@@ -158,10 +165,12 @@
     padding-bottom: 60px;
     background: rgba(0, 0, 0, 0.01);
   }
-  .consensus-cards-flex,
-  .deck-preview {
+  .consensus-cards-flex {
     grid-template-columns: repeat(auto-fill, 160px) !important;
     justify-content: center;
+  }
+  .deck-preview {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
   }
 
   /* Wider modals */
@@ -208,6 +217,10 @@
     overflow-x: hidden;
   }
 
+  .hide-on-mobile {
+    display: none;
+  }
+
 
   html {
     font-size: 15px;
@@ -245,7 +258,7 @@
   }
 
   .deck-preview {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .checkbox-grid {
