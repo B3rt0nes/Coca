@@ -95,7 +95,7 @@
                 <button class="btn btn--secondary" id="btn-consensus-view" title="Vedi un riassunto di tutte le proposte">
                   📊 <span class="hide-on-mobile">Visione d'Insieme</span>
                 </button>
-                <button class="btn btn--secondary" id="btn-edit-base-year" title="Modifica l'organico di partenza" style="display: none;">
+                <button class="btn btn--secondary master-only" id="btn-edit-base-year" title="Modifica l'organico di partenza">
                   ⚙️ <span class="hide-on-mobile">Organico Attuale</span>
                 </button>
                 <button class="btn btn--primary" id="btn-new-proposal">
@@ -123,7 +123,7 @@
                   <option value="name">Alfabetico</option>
                   <option value="sex">Sesso</option>
                 </select>
-                <button class="btn btn--green btn--small hidden" id="btn-add-capo">
+                <button class="btn btn--green btn--small master-only" id="btn-add-capo">
                   ✚ Aggiungi
                 </button>
               </div>
@@ -175,7 +175,7 @@
           <!-- Branch sections are rendered dynamically by board.js -->
         </div>
         <div style="text-align: center; margin-top: 24px; padding-bottom: 32px;" id="add-year-container">
-          <button class="btn btn--secondary" id="btn-add-year">
+          <button class="btn btn--secondary master-only" id="btn-add-year">
             ✚ Aggiungi Previsione Anno Successivo
           </button>
         </div>
@@ -206,7 +206,7 @@
               <option value="name">Alfabetico</option>
               <option value="sex">Sesso</option>
             </select>
-            <button class="btn btn--secondary btn--small" id="btn-drawer-new-entry" title="Nuovo Ingresso" style="padding: 0 8px; font-size: 1.1rem;">➕</button>
+            <button class="btn btn--secondary btn--small master-only" id="btn-drawer-new-entry" title="Nuovo Ingresso" style="padding: 0 8px; font-size: 1.1rem;">➕</button>
           </div>
         </div>
         <div class="deck-drawer__cards" id="deck-cards">
@@ -278,6 +278,9 @@
   <!-- Hidden utility class & custom styles -->
   <style>
     .hidden { display: none !important; }
+    body:not(.is-master) .master-only {
+      display: none !important;
+    }
     .deck-drawer__cards {
       max-height: none;
       grid-template-columns: 1fr 1fr;

@@ -3,7 +3,7 @@
 // SPA Router, State Management, Event Handling
 // ============================================
 
-import { getUsername, setUsername, logout, isLoggedIn } from './auth.js';
+import { getUsername, setUsername, logout, isLoggedIn, isMasterUser } from './auth.js';
 import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
 import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
 import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect, getYearLabel } from './board.js';
@@ -25,7 +25,8 @@ const AppState = {
   unsubscribeProposals: null,
   deckFilter: '',
   drawerCollapsed: true,
-  years: [{ label: getYearLabel(0), units: {} }]
+  years: [{ label: getYearLabel(0), units: {} }],
+  isMaster: false
 };
 
 
@@ -42,6 +43,9 @@ function handleRoute() {
   const parts = hash.split('/');
   const route = parts[0];
   const param = parts[1];
+
+  AppState.isMaster = isMasterUser();
+  document.body.classList.toggle('is-master', AppState.isMaster);
 
   // Hide all views
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -221,6 +225,7 @@ function renderDashboardProposals() {
       : '...';
 
     const isOwn = p.autore === getUsername();
+    const canDelete = isOwn || AppState.isMaster;
 
     return `
       <div class="proposal-item" data-proposal-id="${p.id}" data-readonly="${!isOwn}">
@@ -233,7 +238,10 @@ function renderDashboardProposals() {
             ${isOwn ? '<span>• ✏️ Tua</span>' : '<span>• 👁️ Sola lettura</span>'}
           </div>
         </div>
-        <span class="proposal-item__arrow">→</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${canDelete ? `<button class="btn btn--danger btn--small btn-delete-dashboard-proposal" data-proposal-id="${p.id}" title="Elimina proposta" style="padding: 4px 8px; font-size: 1rem;">🗑</button>` : ''}
+          <span class="proposal-item__arrow">→</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -242,6 +250,7 @@ function renderDashboardProposals() {
 function setupDashboardEvents() {
   // Add capo button
   document.getElementById('btn-add-capo')?.addEventListener('click', () => {
+    if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
     showAddCapoModal(async (data) => {
       try {
         await addCapo(data);
@@ -269,6 +278,7 @@ function setupDashboardEvents() {
 
   // Edit base year button
   document.getElementById('btn-edit-base-year')?.addEventListener('click', () => {
+    if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
     if (AppState.capi.length === 0) {
       showToast('Aggiungi almeno un capo al mazzo prima di creare una proposta', 'warning');
       return;
@@ -289,7 +299,28 @@ function setupDashboardEvents() {
   });
 
   // Proposal item clicks (event delegation)
-  document.getElementById('proposals-list')?.addEventListener('click', (e) => {
+  document.getElementById('proposals-list')?.addEventListener('click', async (e) => {
+    const deleteBtn = e.target.closest('.btn-delete-dashboard-proposal');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const proposalId = deleteBtn.dataset.proposalId;
+      
+      const confirmed = await import('./ui.js').then(({ showConfirm }) => 
+        showConfirm('Elimina Proposta', 'Sei sicuro di voler eliminare questa proposta?<br>Questa azione non può essere annullata.')
+      );
+      
+      if (confirmed) {
+        try {
+          await deleteProposal(proposalId);
+          import('./ui.js').then(({ showToast }) => showToast('Proposta eliminata', 'success'));
+        } catch (err) {
+          import('./ui.js').then(({ showToast }) => showToast('Errore nell\'eliminazione', 'error'));
+          console.error(err);
+        }
+      }
+      return;
+    }
+
     const item = e.target.closest('.proposal-item');
     if (!item) return;
     const proposalId = item.dataset.proposalId;
@@ -340,6 +371,7 @@ async function initBoardView() {
     // Show save/deck controls
     document.getElementById('btn-save-proposal')?.classList.remove('hidden');
     document.getElementById('deck-drawer')?.classList.remove('hidden');
+    document.getElementById('btn-delete-proposal')?.classList.add('hidden'); // Hide on new proposal
 
     document.getElementById('drawer-search')?.addEventListener('input', (e) => {
       AppState.deckFilter = e.target.value;
@@ -432,9 +464,19 @@ async function loadProposalView(proposalId) {
     if (!isOwn) {
       document.getElementById('btn-save-proposal')?.classList.add('hidden');
       document.getElementById('deck-drawer')?.classList.add('hidden');
+      if (AppState.isMaster && proposalId !== 'base-year') {
+        document.getElementById('btn-delete-proposal')?.classList.remove('hidden');
+      } else {
+        document.getElementById('btn-delete-proposal')?.classList.add('hidden');
+      }
     } else {
       document.getElementById('btn-save-proposal')?.classList.remove('hidden');
       document.getElementById('deck-drawer')?.classList.remove('hidden');
+      if (proposalId !== 'base-year') {
+        document.getElementById('btn-delete-proposal')?.classList.remove('hidden');
+      } else {
+        document.getElementById('btn-delete-proposal')?.classList.add('hidden');
+      }
     }
 
     // Process assignments to update AppState.years before rendering
@@ -674,6 +716,10 @@ function setupBoardEvents() {
   const btnAddYear = document.getElementById('btn-add-year');
   if (btnAddYear) {
     btnAddYear.addEventListener('click', () => {
+      if (!AppState.isMaster) {
+        import('./ui.js').then(({ showToast }) => showToast('Azione riservata al Master', 'error'));
+        return;
+      }
       if (AppState.isReadonly) return;
       
       // Save current board state first before re-rendering
@@ -701,6 +747,10 @@ function setupBoardEvents() {
   const btnNewEntry = document.getElementById('btn-drawer-new-entry');
   if (btnNewEntry) {
     btnNewEntry.addEventListener('click', () => {
+      if (!AppState.isMaster) {
+        import('./ui.js').then(({ showToast }) => showToast('Azione riservata al Master', 'error'));
+        return;
+      }
       if (AppState.isReadonly) return;
       import('./ui.js').then(({ showNewEntryModal }) => {
         showNewEntryModal((comment) => {
@@ -728,6 +778,10 @@ function setupBoardEvents() {
   // Delete proposal button
   document.getElementById('btn-delete-proposal')?.addEventListener('click', async () => {
     if (!AppState.currentProposalId) return;
+    if (AppState.isReadonly && !AppState.isMaster) {
+      import('./ui.js').then(({ showToast }) => showToast('Non puoi eliminare questa proposta', 'error'));
+      return;
+    }
 
     const confirmed = await showConfirm(
       'Elimina Proposta',

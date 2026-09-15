@@ -35,3 +35,14 @@ export function isLoggedIn() {
   const username = getUsername();
   return username !== null && username.trim() !== '';
 }
+
+/**
+ * Check if current user is a master (admin)
+ * @returns {boolean}
+ */
+export function isMasterUser() {
+  const username = getUsername();
+  if (!username) return false;
+  const masterNames = ['master', 'direzione', 'admin'];
+  return masterNames.includes(username.trim().toLowerCase());
+}
