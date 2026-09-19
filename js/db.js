@@ -3,14 +3,106 @@
 // ============================================
 
 import { db } from './firebase-config.js';
+import { getGroupName } from './auth.js';
 import {
   collection, addDoc, getDocs, getDoc, deleteDoc, doc, setDoc,
   onSnapshot, updateDoc, serverTimestamp, query, orderBy
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 // ── Collection references ──
-const capiRef = collection(db, 'capi');
-const proposteRef = collection(db, 'proposte');
+function getCapiRef() {
+  const group = getGroupName();
+  if (!group) throw new Error("Nessun gruppo selezionato");
+  return collection(db, 'groups', group, 'capi');
+}
+
+function getProposteRef() {
+  const group = getGroupName();
+  if (!group) throw new Error("Nessun gruppo selezionato");
+  return collection(db, 'groups', group, 'proposte');
+}
+
+// ══════════════════════════════════════════
+// GROUP Operations
+// ══════════════════════════════════════════
+
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Get all existing groups
+ * @returns {Array<string>} Array of group names
+ */
+export async function getGroups() {
+  const snapshot = await getDocs(collection(db, 'groups'));
+  return snapshot.docs.map(doc => doc.id).sort();
+}
+
+/**
+ * Create a new group with a password
+ * @param {string} groupName 
+ * @param {string} password 
+ */
+export async function createGroup(groupName, password) {
+  const groupDoc = await getDoc(doc(db, 'groups', groupName));
+  if (groupDoc.exists()) {
+    throw new Error('Il gruppo esiste già');
+  }
+  const passwordHash = await hashPassword(password);
+  await setDoc(doc(db, 'groups', groupName), { passwordHash });
+}
+
+/**
+ * Verify a group's password
+ * @param {string} groupName 
+ * @param {string} password 
+ * @returns {boolean} True if password is correct
+ */
+export async function verifyGroupPassword(groupName, password) {
+  const groupDoc = await getDoc(doc(db, 'groups', groupName));
+  if (!groupDoc.exists()) {
+    throw new Error('Gruppo non trovato');
+  }
+  const passwordHash = await hashPassword(password);
+  return groupDoc.data().passwordHash === passwordHash;
+}
+
+const DEFAULT_UNITS = {
+  'branco-1': { type: 'branco', name: 'Branco Waingunga' },
+  'cerchio-1': { type: 'cerchio', name: 'Cerchio della Gioia' },
+  'reparto-1': { type: 'reparto', name: 'Reparto Stella Polare' },
+  'noviziato-1': { type: 'noviziato', name: 'Noviziato' },
+  'clan-1': { type: 'clan', name: 'Clan del Fuoco' },
+  'coca-1': { type: 'coca', name: 'Co.Ca.' }
+};
+
+/**
+ * Get units configuration for the current group
+ */
+export async function getGroupUnits() {
+  const group = getGroupName();
+  if (!group) return null;
+  const settingsDoc = await getDoc(doc(db, 'groups', group, 'config', 'settings'));
+  if (settingsDoc.exists() && settingsDoc.data().units) {
+    return settingsDoc.data().units;
+  }
+  // Initialize defaults if none exists
+  await saveGroupUnits(DEFAULT_UNITS);
+  return DEFAULT_UNITS;
+}
+
+/**
+ * Save units configuration for the current group
+ */
+export async function saveGroupUnits(units) {
+  const group = getGroupName();
+  if (!group) throw new Error("Nessun gruppo selezionato");
+  await setDoc(doc(db, 'groups', group, 'config', 'settings'), { units }, { merge: true });
+}
 
 // ══════════════════════════════════════════
 // CAPI (Deck) Operations
@@ -22,7 +114,7 @@ const proposteRef = collection(db, 'proposte');
  * @returns {string} Document ID
  */
 export async function addCapo(capoData) {
-  const docRef = await addDoc(capiRef, {
+  const docRef = await addDoc(getCapiRef(), {
     ...capoData,
     createdAt: serverTimestamp()
   });
@@ -52,7 +144,7 @@ function tagDuplicateNames(capi) {
  * @returns {Array} Array of { id, ...data }
  */
 export async function getCapi() {
-  const q = query(capiRef, orderBy('cognome', 'asc'));
+  const q = query(getCapiRef(), orderBy('cognome', 'asc'));
   const snapshot = await getDocs(q);
   const capi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   return tagDuplicateNames(capi);
@@ -64,7 +156,7 @@ export async function getCapi() {
  * @returns {Function} Unsubscribe function
  */
 export function onCapiChange(callback) {
-  const q = query(capiRef, orderBy('cognome', 'asc'));
+  const q = query(getCapiRef(), orderBy('cognome', 'asc'));
   return onSnapshot(q, (snapshot) => {
     const capi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(tagDuplicateNames(capi));
@@ -78,7 +170,8 @@ export function onCapiChange(callback) {
  * @param {string} id - Document ID
  */
 export async function deleteCapo(id) {
-  await deleteDoc(doc(db, 'capi', id));
+  const group = getGroupName();
+  await deleteDoc(doc(db, 'groups', group, 'capi', id));
 }
 
 /**
@@ -87,7 +180,8 @@ export async function deleteCapo(id) {
  * @param {Object} data - Fields to update
  */
 export async function updateCapo(id, data) {
-  await updateDoc(doc(db, 'capi', id), data);
+  const group = getGroupName();
+  await updateDoc(doc(db, 'groups', group, 'capi', id), data);
 }
 
 
@@ -101,7 +195,7 @@ export async function updateCapo(id, data) {
  * @returns {string} Document ID
  */
 export async function saveProposal(proposalData) {
-  const docRef = await addDoc(proposteRef, {
+  const docRef = await addDoc(getProposteRef(), {
     ...proposalData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -115,7 +209,8 @@ export async function saveProposal(proposalData) {
  * @param {Object} data - Fields to update
  */
 export async function updateProposal(id, data) {
-  await updateDoc(doc(db, 'proposte', id), {
+  const group = getGroupName();
+  await updateDoc(doc(db, 'groups', group, 'proposte', id), {
     ...data,
     updatedAt: serverTimestamp()
   });
@@ -126,7 +221,7 @@ export async function updateProposal(id, data) {
  * @returns {Array} Array of { id, ...data }
  */
 export async function getProposals() {
-  const q = query(proposteRef, orderBy('createdAt', 'desc'));
+  const q = query(getProposteRef(), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -139,7 +234,7 @@ export async function getProposals() {
  * @returns {Function} Unsubscribe function
  */
 export function onProposalsChange(callback) {
-  const q = query(proposteRef, orderBy('createdAt', 'desc'));
+  const q = query(getProposteRef(), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snapshot) => {
     const proposals = snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -155,7 +250,8 @@ export function onProposalsChange(callback) {
  * @param {Object} proposalData 
  */
 export async function saveBaseYear(proposalData) {
-  await setDoc(doc(db, 'proposte', 'base-year'), {
+  const group = getGroupName();
+  await setDoc(doc(db, 'groups', group, 'proposte', 'base-year'), {
     ...proposalData,
     isBaseYear: true,
     updatedAt: serverTimestamp()
@@ -166,7 +262,8 @@ export async function saveBaseYear(proposalData) {
  * Get the base year proposal
  */
 export async function getBaseYear() {
-  const docSnap = await getDoc(doc(db, 'proposte', 'base-year'));
+  const group = getGroupName();
+  const docSnap = await getDoc(doc(db, 'groups', group, 'proposte', 'base-year'));
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() };
   }
@@ -179,7 +276,8 @@ export async function getBaseYear() {
  * @returns {Object|null} Proposal data or null
  */
 export async function getProposal(id) {
-  const docSnap = await getDoc(doc(db, 'proposte', id));
+  const group = getGroupName();
+  const docSnap = await getDoc(doc(db, 'groups', group, 'proposte', id));
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() };
   }
@@ -191,5 +289,6 @@ export async function getProposal(id) {
  * @param {string} id - Document ID
  */
 export async function deleteProposal(id) {
-  await deleteDoc(doc(db, 'proposte', id));
+  const group = getGroupName();
+  await deleteDoc(doc(db, 'groups', group, 'proposte', id));
 }

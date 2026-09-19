@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Tutti i gruppi
+    match /groups/{groupName} {
+      // Regola base strutturale: permette la lettura e scrittura
+      // Idealmente, in una VERA applicazione sicura, l'autenticazione Firebase
+      // impedirebbe l'accesso. Poiché stiamo simulando il login con password
+      // salvate in chiaro o in hash sul documento, una regola base è necessaria.
+      // Si potrebbe richiedere che il payload di creazione abbia un passwordHash.
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['passwordHash', 'createdAt']);
+      allow update: if true;
+      allow delete: if false;
+
+      // Sotto-collezioni (config, capi, proposte)
+      match /{subcollection=**} {
+        // Lettura e scrittura consentite per chi conosce il nome del gruppo
+        // In assenza di Custom Auth Token, ci affidiamo alla "segretezza"
+        // e all'isolamento del path del gruppo nel frontend.
+        allow read, write: if true;
+      }
+    }
+  }
+}

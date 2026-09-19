@@ -9,90 +9,79 @@ import { createCardElement } from './deck.js';
 // UNIT DEFINITIONS
 // ══════════════════════════════════════════
 
-export const UNITS = {
-  'branco-s-francesco': {
-    name: 'Branco S. Francesco',
-    branch: 'LC',
-    icon: '🐺',
+export let UNITS = {};
+
+export function setUnits(dbUnits) {
+  const newUnits = {};
+  for (const [id, config] of Object.entries(dbUnits)) {
+    const template = UNIT_TEMPLATES[config.type];
+    if (template) {
+      newUnits[id] = {
+        name: config.name,
+        branch: template.branch,
+        icon: template.icon,
+        roles: template.roles,
+        mainRoles: template.mainRoles
+      };
+    }
+  }
+  UNITS = newUnits;
+}
+
+export const UNIT_TEMPLATES = {
+  'branco': {
+    branch: 'LC', icon: '🐺', mainRoles: ['CB'],
     roles: [
       { value: 'CB', label: 'CB - Capo Branco' },
       { value: 'ACB', label: 'ACB - Aiuto Capo Branco' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CB']
+    ]
   },
-  'cerchio-s-chiara': {
-    name: 'Cerchio S. Chiara',
-    branch: 'LC',
-    icon: '🌸',
+  'cerchio': {
+    branch: 'LC', icon: '🌸', mainRoles: ['CC'],
     roles: [
       { value: 'CC', label: 'CC - Capo Cerchio' },
       { value: 'ACC', label: 'ACC - Aiuto Capo Cerchio' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CC']
+    ]
   },
-  'reparto-apollo': {
-    name: 'Reparto Apollo',
-    branch: 'EG',
-    icon: '☀️',
+  'reparto': {
+    branch: 'EG', icon: '⛺', mainRoles: ['CR'],
     roles: [
       { value: 'CR', label: 'CR - Capo Reparto' },
       { value: 'ACR', label: 'ACR - Aiuto Capo Reparto' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CR']
-  },
-  'reparto-artemide': {
-    name: 'Reparto Artemide',
-    branch: 'EG',
-    icon: '🌙',
-    roles: [
-      { value: 'CR', label: 'CR - Capo Reparto' },
-      { value: 'ACR', label: 'ACR - Aiuto Capo Reparto' },
-      { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
-      { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CR']
+    ]
   },
   'noviziato': {
-    name: 'Noviziato',
-    branch: 'RS',
-    icon: '🧭',
+    branch: 'RS', icon: '🧭', mainRoles: ['MdN'],
     roles: [
       { value: 'MdN', label: 'MdN - Maestro dei Novizi' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['MdN']
+    ]
   },
-  'clan-boanerghes': {
-    name: 'Clan Boanerghes',
-    branch: 'RS',
-    icon: '🔥',
+  'clan': {
+    branch: 'RS', icon: '🔥', mainRoles: ['CC/CF'],
     roles: [
       { value: 'CC/CF', label: 'CC/CF - Capo Clan/Fuoco' },
       { value: 'ACC/ACF', label: 'ACC/ACF - Aiuto Capo Clan/Fuoco' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CC/CF']
+    ]
   },
   'coca': {
-    name: 'Co.Ca.',
-    branch: 'COCA',
-    icon: '🏛️',
+    branch: 'COCA', icon: '🏛️', mainRoles: ['CG'],
     roles: [
       { value: 'CG', label: 'CG - Capo Gruppo' },
       { value: 'ACG', label: 'ACG - Aiuto Capo Gruppo' },
       { value: 'AA', label: 'AA - A supporto del gruppo' },
       { value: 'AE', label: 'AE - Assistente Ecclesiastico' },
       { value: 'AS', label: 'AS - Animatore Spirituale' }
-    ],
-    mainRoles: ['CG']
+    ]
   }
 };
 
@@ -582,5 +571,61 @@ function updateMultiIncaricoReadonly(yearsData) {
         card.classList.toggle('card--multi', (capoCount[capoId] || 0) > 1);
       });
     }
+  });
+}
+
+// ══════════════════════════════════════════
+// DIFF MODE (Turnover visivo)
+// ══════════════════════════════════════════
+
+let diffModeActive = false;
+
+export function toggleDiffMode(yearsData) {
+  diffModeActive = !diffModeActive;
+  const board = document.getElementById('board-grid');
+  
+  if (!diffModeActive) {
+    board.querySelectorAll('.card').forEach(card => {
+      card.classList.remove('status-kept', 'status-changed', 'status-new');
+    });
+    return;
+  }
+
+  const baseYear = yearsData.find(y => y.isBaseYear);
+  if (!baseYear || !baseYear.units) return;
+
+  board.querySelectorAll('.drop-zone').forEach(zone => {
+    const yearIndex = parseInt(zone.dataset.yearIndex, 10);
+    if (yearsData[yearIndex] && yearsData[yearIndex].isBaseYear) return;
+
+    const unitId = zone.dataset.unitId;
+    
+    zone.querySelectorAll('.card').forEach(card => {
+      const capoId = card.dataset.capoId;
+      if (!capoId) return;
+      
+      card.classList.remove('status-kept', 'status-changed', 'status-new');
+
+      let foundInBase = false;
+      let inSameUnit = false;
+
+      for (const [bUnitId, bAssignments] of Object.entries(baseYear.units)) {
+        if (bAssignments.find(a => a.capoId === capoId)) {
+          foundInBase = true;
+          if (bUnitId === unitId) {
+            inSameUnit = true;
+          }
+          break;
+        }
+      }
+
+      if (!foundInBase) {
+        card.classList.add('status-new'); 
+      } else if (inSameUnit) {
+        card.classList.add('status-kept'); 
+      } else {
+        card.classList.add('status-changed'); 
+      }
+    });
   });
 }

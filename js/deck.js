@@ -25,6 +25,20 @@ export function getFocaBadgeClass(livello) {
  * @returns {string}
  */
 export function getFocaLabel(capo) {
+  const tizzoneSVG = `<svg class="badge-icon badge-tizzone" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+  </svg>`;
+  
+  const nodoSVG = `<svg class="badge-icon badge-nodo" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3v5.1L5.91 5.92A4.978 4.978 0 0 0 2.5 12c0 2.76 2.24 5 5 5h8v2h-8c-3.87 0-7-3.13-7-7 0-2.43 1.25-4.56 3.14-5.83l7.33 7.33C10.74 18.23 11 19.58 11 21h2c0-1.07-.36-2.06-.96-2.85l2.42-2.42C14.93 15.9 15.45 16 16 16c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+  </svg>`;
+
+  if (capo.livelloFoca === 'CFA' || capo.livelloFoca === 'WB') {
+    return `${tizzoneSVG} ${capo.livelloFoca}`;
+  }
+  if (capo.livelloFoca === 'Tirocinio') {
+    return `${nodoSVG} Tirocinio`;
+  }
   if (capo.livelloFoca === 'CFM' && capo.cfmDettaglio) {
     return `CFM (${capo.cfmDettaglio})`;
   }

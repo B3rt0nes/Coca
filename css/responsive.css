@@ -343,3 +343,66 @@
     text-overflow: ellipsis;
   }
 }
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+@media print {
+  /* Nascondi elementi di UI non necessari */
+  .navbar,
+  .dashboard__header,
+  .board-header__actions,
+  #deck-drawer,
+  .btn,
+  .drawer-toggle {
+    display: none !important;
+  }
+
+  /* Reimposta i container per la stampa su A4 */
+  body, .app-container {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Colori ad alto contrasto per le tabelle */
+  .consensus-grid {
+    gap: 10px;
+    background: white;
+  }
+
+  .consensus-unit {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #ccc;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  .consensus-unit__header {
+    background: #f0f0f0 !important;
+    color: black !important;
+    border-bottom: 2px solid #ccc;
+  }
+
+  .consensus-row {
+    border-bottom: 1px solid #eee;
+  }
+
+  /* Rimuove sfumature e ombre dalle carte/celle */
+  .consensus-cell {
+    background: white !important;
+    border: 1px solid #eee !important;
+    color: black !important;
+  }
+
+  .consensus-cell.empty {
+    background: #f9f9f9 !important;
+  }
+
+  /* Evita interruzioni di pagina scomode */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+}

@@ -287,6 +287,7 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
         </div>
 
         <div class="modal__actions">
+          ${isEditing ? `<button type="button" class="btn btn--danger" id="capo-delete" style="margin-right: auto;">🗑 Elimina</button>` : ''}
           <button type="button" class="btn btn--secondary" id="capo-cancel">Annulla</button>
           <button type="submit" class="btn btn--green">${btnText}</button>
         </div>
@@ -434,6 +435,27 @@ export function showAddCapoModal(onSubmit, capoToEdit = null) {
     hideModal();
   });
 
+  const deleteBtn = overlay.querySelector('#capo-delete');
+  if (deleteBtn && isEditing) {
+    deleteBtn.addEventListener('click', async () => {
+      const confirmDelete = await showConfirm(
+        'Elimina Capo',
+        `Sei sicuro di voler eliminare ${capoToEdit.nome} ${capoToEdit.cognome}?`
+      );
+      if (confirmDelete) {
+        try {
+          const { deleteCapo } = await import('./db.js');
+          await deleteCapo(capoToEdit.id);
+          showToast('Capo eliminato con successo', 'success');
+          hideModal();
+        } catch (err) {
+          console.error(err);
+          showToast("Errore nell'eliminazione", 'error');
+        }
+      }
+    });
+  }
+
   requestAnimationFrame(() => {
     overlay.classList.add('active');
     overlay.querySelector('#capo-nome').focus();
@@ -523,4 +545,129 @@ if (!document.getElementById('spin-style')) {
   style.id = 'spin-style';
   style.textContent = `@keyframes spin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }`;
   document.head.appendChild(style);
+}
+
+// ══════════════════════════════════════════
+// UNITS MANAGEMENT MODAL
+// ══════════════════════════════════════════
+
+export async function showUnitsModal() {
+  const { getGroupUnits, saveGroupUnits } = await import('./db.js');
+  const { UNIT_TEMPLATES, setUnits } = await import('./board.js');
+
+  setLoading(true);
+  let units = {};
+  try {
+    units = await getGroupUnits();
+  } catch(e) {
+    console.error(e);
+    showToast("Errore caricamento unità", "error");
+    setLoading(false);
+    return;
+  }
+  setLoading(false);
+
+  const overlay = ensureModalOverlay();
+  
+  const renderUnitsList = () => {
+    const listHtml = Object.entries(units).map(([id, u]) => {
+      const template = UNIT_TEMPLATES[u.type];
+      const icon = template ? template.icon : '⛺';
+      return `
+        <div class="unit-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-light);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 1.5rem;">${icon}</span>
+            <div>
+              <div style="font-weight: 600;">${u.name}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">${u.type}</div>
+            </div>
+          </div>
+          <div>
+            <button type="button" class="btn btn--small btn--secondary btn-delete-unit" data-id="${id}" title="Elimina" style="color: var(--accent-red);">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const templateOptions = Object.entries(UNIT_TEMPLATES).map(([type, t]) => 
+      `<option value="${type}">${t.icon} ${type.charAt(0).toUpperCase() + type.slice(1)}</option>`
+    ).join('');
+
+    overlay.innerHTML = `
+      <div class="modal" style="max-width: 500px;">
+        <h3 class="modal__title">⛺ Gestione Unità</h3>
+        <div class="modal__body" style="max-height: 400px; overflow-y: auto;">
+          ${Object.keys(units).length === 0 ? '<p style="color:var(--text-muted); text-align:center;">Nessuna unità presente.</p>' : listHtml}
+        </div>
+        
+        <form id="add-unit-form" style="margin-top: 24px; padding-top: 16px; border-top: 2px dashed var(--border-light);">
+          <h4 style="margin-bottom: 12px; font-size: 1rem;">Aggiungi Nuova Unità</h4>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-input" id="new-unit-type" required style="flex: 1;">
+              <option value="" disabled selected>Tipo...</option>
+              ${templateOptions}
+            </select>
+            <input type="text" class="form-input" id="new-unit-name" placeholder="Nome (es. Waingunga)" required style="flex: 2;">
+            <button type="submit" class="btn btn--primary">✚</button>
+          </div>
+        </form>
+
+        <div class="modal__actions" style="margin-top: 24px;">
+          <button type="button" class="btn btn--secondary" id="btn-close-units">Chiudi</button>
+          <button type="button" class="btn btn--green" id="btn-save-units">✓ Salva Modifiche</button>
+        </div>
+      </div>
+    `;
+
+    // Bind delete buttons
+    overlay.querySelectorAll('.btn-delete-unit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        delete units[id];
+        renderUnitsList();
+      });
+    });
+
+    // Bind add form
+    overlay.querySelector('#add-unit-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const type = overlay.querySelector('#new-unit-type').value;
+      const nameInput = overlay.querySelector('#new-unit-name').value.trim();
+      if (!type || !nameInput) return;
+
+      const template = UNIT_TEMPLATES[type];
+      const fullName = type === 'coca' ? nameInput : `${type.charAt(0).toUpperCase() + type.slice(1)} ${nameInput}`;
+      
+      const newId = `${type}-${Date.now()}`;
+      units[newId] = {
+        type: type,
+        name: fullName
+      };
+      
+      renderUnitsList();
+    });
+
+    overlay.querySelector('#btn-close-units').addEventListener('click', hideModal);
+    
+    overlay.querySelector('#btn-save-units').addEventListener('click', async () => {
+      setLoading(true);
+      try {
+        await saveGroupUnits(units);
+        setUnits(units);
+        showToast('Unità aggiornate con successo', 'success');
+        hideModal();
+        // Dispara un custom event per ricaricare la dashboard/board se necessario,
+        // oppure chiamiamo semplicemente loadDashboard() se siamo in dashboard.
+        // Un semplice window.location.reload() assicura la coerenza.
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        showToast('Errore nel salvataggio', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  renderUnitsList();
 }

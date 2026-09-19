@@ -3,19 +3,19 @@
 // SPA Router, State Management, Event Handling
 // ============================================
 
-import { getUsername, setUsername, logout, isLoggedIn, isMasterUser } from './auth.js';
-import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange } from './db.js';
+import { getUsername, setAuth, logout, isLoggedIn, isMasterUser, getGroupName } from './auth.js';
+import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange, getGroups, verifyGroupPassword, createGroup, getGroupUnits, saveGroupUnits } from './db.js';
 import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
-import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, createRoleSelect, getYearLabel } from './board.js';
+import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, setUnits, createRoleSelect, getYearLabel } from './board.js';
 import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
 import { validateProposal } from './validation.js';
 import { showToast, showModal, hideModal, showConfirm, showWarningConfirm, showAddCapoModal, setLoading } from './ui.js';
 
 // ══════════════════════════════════════════
-// APPLICATION STATE
+// APPLICATION STATE (Proxy Pattern)
 // ══════════════════════════════════════════
 
-const AppState = {
+const rawAppState = {
   capi: [],
   proposals: [],
   currentView: 'login',
@@ -28,6 +28,31 @@ const AppState = {
   years: [{ label: getYearLabel(0), units: {} }],
   isMaster: false
 };
+
+const AppState = new Proxy(rawAppState, {
+  set(target, prop, value) {
+    target[prop] = value;
+    // Dispatch a custom event on window whenever state changes
+    window.dispatchEvent(new CustomEvent('appStateChanged', { 
+      detail: { prop, value } 
+    }));
+    return true;
+  }
+});
+
+// Example of reactivity usage: Listening to state changes
+window.addEventListener('appStateChanged', (e) => {
+  if (e.detail.prop === 'proposals' && AppState.currentView === 'consensus') {
+    // If proposals change while in consensus view, re-render
+    const grid = document.getElementById('consensus-grid');
+    if (grid) {
+      import('./consensus.js').then(module => {
+        module.loadConsensusView(grid, AppState.capi, AppState.proposals);
+      });
+    }
+  }
+});
+
 
 
 // ══════════════════════════════════════════
@@ -61,6 +86,18 @@ function handleRoute() {
   switch (route) {
     case '#login':
       showView('login-view');
+      import('./db.js').then(module => {
+        module.getGroups().then(groups => {
+          const select = document.getElementById('login-group');
+          if (select) {
+            select.innerHTML = '<option value="" disabled selected>Seleziona un gruppo...</option>' + 
+              groups.map(g => `<option value="${g}">${g}</option>`).join('');
+          }
+        }).catch(err => {
+          console.error("Error loading groups:", err);
+          showToast("Errore nel caricamento dei gruppi", "error");
+        });
+      });
       break;
 
     case '#dashboard':
@@ -74,7 +111,11 @@ function handleRoute() {
 
       showView('dashboard-view');
       updateDashboardHeader();
-      loadDashboard();
+      import('./db.js').then(async (dbModule) => {
+        const units = await dbModule.getGroupUnits();
+        import('./board.js').then(b => b.setUnits(units));
+        loadDashboard();
+      });
       break;
 
     case '#proposta':
@@ -100,8 +141,12 @@ function handleRoute() {
         return;
       }
       showView('consensus-view');
-      import('./consensus.js').then(module => {
-        module.loadConsensusView(document.getElementById('consensus-grid'), AppState.capi);
+      import('./db.js').then(async (dbModule) => {
+        const units = await dbModule.getGroupUnits();
+        import('./board.js').then(b => b.setUnits(units));
+        import('./consensus.js').then(module => {
+          module.loadConsensusView(document.getElementById('consensus-grid'), AppState.capi, AppState.proposals);
+        });
       });
       break;
 
@@ -124,28 +169,91 @@ function showView(viewId) {
 // ══════════════════════════════════════════
 
 function setupLogin() {
-  const form = document.getElementById('login-form');
-  if (!form) return;
+  const loginForm = document.getElementById('login-form');
+  const createGroupForm = document.getElementById('create-group-form');
+  
+  const toggleCreate = document.getElementById('toggle-create-group');
+  const toggleLogin = document.getElementById('toggle-login');
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = document.getElementById('login-username');
-    const username = input.value.trim();
+  if (toggleCreate && toggleLogin) {
+    toggleCreate.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.classList.add('hidden');
+      createGroupForm.classList.remove('hidden');
+    });
 
-    if (!username) {
-      showToast('Inserisci un nome utente', 'error');
-      return;
-    }
+    toggleLogin.addEventListener('click', (e) => {
+      e.preventDefault();
+      createGroupForm.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+    });
+  }
 
-    if (username.length < 2) {
-      showToast('Il nome utente deve avere almeno 2 caratteri', 'error');
-      return;
-    }
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const groupInput = document.getElementById('login-group');
+      const passwordInput = document.getElementById('login-password');
+      const usernameInput = document.getElementById('login-username');
 
-    setUsername(username);
-    showToast(`Benvenuto, ${username}! 🎉`, 'success');
-    navigate('#dashboard');
-  });
+      const groupName = groupInput.value;
+      const password = passwordInput.value;
+      const username = usernameInput.value.trim();
+
+      if (!groupName || !password || !username) {
+        showToast('Compila tutti i campi', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const isValid = await verifyGroupPassword(groupName, password);
+        if (isValid) {
+          setAuth(username, groupName);
+          showToast(`Benvenuto nel gruppo ${groupName}, ${username}! 🎉`, 'success');
+          navigate('#dashboard');
+        } else {
+          showToast('Password errata', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Errore durante il login', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  }
+
+  if (createGroupForm) {
+    createGroupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const groupInput = document.getElementById('create-group-name');
+      const passwordInput = document.getElementById('create-group-password');
+      const usernameInput = document.getElementById('create-username');
+
+      const groupName = groupInput.value.trim();
+      const password = passwordInput.value;
+      const username = usernameInput.value.trim();
+
+      if (!groupName || !password || !username) {
+        showToast('Compila tutti i campi', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await createGroup(groupName, password);
+        setAuth(username, groupName);
+        showToast(`Gruppo ${groupName} creato! Benvenuto, ${username}! 🎉`, 'success');
+        navigate('#dashboard');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Errore durante la creazione del gruppo', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  }
 }
 
 
@@ -156,7 +264,7 @@ function setupLogin() {
 function updateDashboardHeader() {
   const usernameEl = document.getElementById('header-username');
   if (usernameEl) {
-    usernameEl.textContent = getUsername();
+    usernameEl.textContent = `${getUsername()} — ${getGroupName()}`;
   }
 }
 
@@ -226,16 +334,20 @@ function renderDashboardProposals() {
 
     const isOwn = p.autore === getUsername();
     const canDelete = isOwn || AppState.isMaster;
+    const lockIcon = p.isLocked ? '<span title="Definitiva">🔒</span> ' : '';
+    const statusText = isOwn 
+      ? (p.isLocked ? '<span>• 🔒 Definitiva</span>' : '<span>• ✏️ Tua</span>')
+      : '<span>• 👁️ Sola lettura</span>';
 
     return `
       <div class="proposal-item" data-proposal-id="${p.id}" data-readonly="${!isOwn}">
         <div class="proposal-item__info">
-          <div class="proposal-item__title">${p.titolo || 'Proposta senza titolo'}</div>
+          <div class="proposal-item__title">${lockIcon}${p.titolo || 'Proposta senza titolo'}</div>
           <div class="proposal-item__meta">
             <span class="proposal-item__author">${p.autore}</span>
             <span>•</span>
             <span>${date}</span>
-            ${isOwn ? '<span>• ✏️ Tua</span>' : '<span>• 👁️ Sola lettura</span>'}
+            ${statusText}
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
@@ -250,7 +362,7 @@ function renderDashboardProposals() {
 function setupDashboardEvents() {
   // Add capo button
   document.getElementById('btn-add-capo')?.addEventListener('click', () => {
-    if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
+    // Ora tutti possono aggiungere capi al mazzo (aggiornabile quando si entra)
     showAddCapoModal(async (data) => {
       try {
         await addCapo(data);
@@ -260,6 +372,12 @@ function setupDashboardEvents() {
         console.error(err);
       }
     });
+  });
+
+  // Manage Units Button
+  document.getElementById('btn-manage-units')?.addEventListener('click', () => {
+    if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
+    import('./ui.js').then(({ showUnitsModal }) => showUnitsModal());
   });
 
   // Sort dropdown
@@ -447,35 +565,55 @@ async function loadProposalView(proposalId) {
     }
 
     AppState.currentProposalId = proposal.id;
+    // We treat the proposal as readonly if it's not ours, OR if it's locked.
+    // However, if we are the author or Master, we might still want to see the lock badge.
     const isOwn = proposal.autore === getUsername() || proposal.id === 'base-year';
-    AppState.isReadonly = !isOwn;
+    const isLocked = !!proposal.isLocked;
+    
+    // Unlocked and owned = editable. Otherwise readonly.
+    AppState.isReadonly = !isOwn || isLocked;
 
     const boardView = document.getElementById('board-view');
-    boardView.classList.toggle('board-view--readonly', !isOwn);
+    boardView.classList.toggle('board-view--readonly', AppState.isReadonly);
+    if (isLocked) {
+      boardView.classList.add('board-view--locked');
+    } else {
+      boardView.classList.remove('board-view--locked');
+    }
 
     // Set title
     const titleInput = document.getElementById('board-title');
     if (titleInput) {
-      titleInput.value = proposal.titolo || '';
-      titleInput.disabled = !isOwn;
+      titleInput.value = (proposal.titolo || '') + (isLocked ? ' 🔒 (Definitiva)' : '');
+      titleInput.disabled = AppState.isReadonly;
     }
 
     // Hide save button and deck if readonly
-    if (!isOwn) {
-      document.getElementById('btn-save-proposal')?.classList.add('hidden');
-      document.getElementById('deck-drawer')?.classList.add('hidden');
+    const btnSave = document.getElementById('btn-save-proposal');
+    const btnLock = document.getElementById('btn-lock-proposal');
+    const btnDelete = document.getElementById('btn-delete-proposal');
+    const deckDrawer = document.getElementById('deck-drawer');
+
+    if (AppState.isReadonly) {
+      btnSave?.classList.add('hidden');
+      btnLock?.classList.add('hidden');
+      deckDrawer?.classList.add('hidden');
       if (AppState.isMaster && proposalId !== 'base-year') {
-        document.getElementById('btn-delete-proposal')?.classList.remove('hidden');
+        btnDelete?.classList.remove('hidden');
       } else {
-        document.getElementById('btn-delete-proposal')?.classList.add('hidden');
+        btnDelete?.classList.add('hidden');
       }
     } else {
-      document.getElementById('btn-save-proposal')?.classList.remove('hidden');
-      document.getElementById('deck-drawer')?.classList.remove('hidden');
+      btnSave?.classList.remove('hidden');
+      deckDrawer?.classList.remove('hidden');
+      
+      // Show lock button only if it's not base-year
       if (proposalId !== 'base-year') {
-        document.getElementById('btn-delete-proposal')?.classList.remove('hidden');
+        btnLock?.classList.remove('hidden');
+        btnDelete?.classList.remove('hidden');
       } else {
-        document.getElementById('btn-delete-proposal')?.classList.add('hidden');
+        btnLock?.classList.add('hidden');
+        btnDelete?.classList.add('hidden');
       }
     }
 
@@ -517,10 +655,10 @@ async function loadProposalView(proposalId) {
 
     // Load saved assignments
     if (proposal.assegnazioni) {
-      loadAssignments(proposal.assegnazioni, AppState.capi, !isOwn);
+      loadAssignments(proposal.assegnazioni, AppState.capi, AppState.isReadonly);
     }
 
-    if (isOwn) {
+    if (!AppState.isReadonly) {
       // Enable editing
       renderDeckInDrawer();
       initDragDrop(AppState.capi, onBoardChange);
@@ -699,6 +837,16 @@ function setupBoardEvents() {
     navigate('#dashboard');
   });
 
+  // Diff toggle button
+  const btnToggleDiff = document.getElementById('btn-toggle-diff');
+  if (btnToggleDiff) {
+    btnToggleDiff.addEventListener('click', () => {
+      import('./board.js').then(module => {
+        module.toggleDiffMode(AppState.years);
+      });
+    });
+  }
+
   const sortSelect = document.getElementById('drawer-deck-sort');
   if (sortSelect) {
     sortSelect.addEventListener('change', () => {
@@ -709,7 +857,26 @@ function setupBoardEvents() {
 
   // Save proposal button
   document.getElementById('btn-save-proposal')?.addEventListener('click', async () => {
-    await handleSaveProposal();
+    await handleSaveProposal(false);
+  });
+
+  // Lock proposal button
+  const btnLock = document.getElementById('btn-lock-proposal');
+  if (btnLock) {
+    btnLock.addEventListener('click', async () => {
+      const confirm = await import('./ui.js').then(({ showWarningConfirm }) => 
+        showWarningConfirm('Congela Proposta', 'Sei sicuro di voler bloccare questa proposta come DEFINITIVA? Non potrà più essere modificata se non sbloccandola dal DB.')
+      );
+      if (confirm) {
+        await handleSaveProposal(true);
+      }
+    });
+  }
+
+  // Manage Units Button from Board
+  document.getElementById('btn-manage-units-board')?.addEventListener('click', () => {
+    if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
+    import('./ui.js').then(({ showUnitsModal }) => showUnitsModal());
   });
 
   // Add year button
@@ -801,7 +968,7 @@ function setupBoardEvents() {
   });
 }
 
-async function handleSaveProposal() {
+async function handleSaveProposal(isLocked = false) {
   const titleInput = document.getElementById('board-title');
   const titolo = titleInput ? titleInput.value.trim() : '';
 
@@ -828,15 +995,17 @@ async function handleSaveProposal() {
     return;
   }
 
-  // Collect assignments from the board (array of years)
   const assegnazioni = collectAssignments(AppState.capi, AppState.years);
 
-  // Validation currently only runs on the FIRST year or flat format.
-  // We'll validate all years, merging the warnings.
   let warnings = [];
+  const baseYearProposal = AppState.years.find(y => y.isBaseYear);
+  const baseYearUnits = baseYearProposal ? baseYearProposal.units : null;
+
   assegnazioni.forEach((yearData, i) => {
-    // validateProposal expects a flat object { unitId: [...] }
-    const yearWarnings = validateProposal(yearData.units, AppState.capi);
+    // Skip base year validation during save (unless it's the only one)
+    if (yearData.isBaseYear && assegnazioni.length > 1) return;
+    
+    const yearWarnings = validateProposal(yearData.units, AppState.capi, yearData.isBaseYear ? null : baseYearUnits);
     if (yearWarnings.length > 0) {
       warnings.push(`<strong>${yearData.label}:</strong>`);
       warnings.push(...yearWarnings);
@@ -861,7 +1030,8 @@ async function handleSaveProposal() {
       autore: getUsername(),
       titolo,
       assegnazioni,
-      warnings: warnings.length > 0 ? warnings : []
+      warnings: warnings.length > 0 ? warnings : [],
+      isLocked
     };
 
     if (AppState.currentProposalId) {

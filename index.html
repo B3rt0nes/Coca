@@ -23,9 +23,25 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/board.css">
+  <link rel="stylesheet" href="css/consensus.css">
   <link rel="stylesheet" href="css/responsive.css">
 
-  <!-- SortableJS -->
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2c3e50">
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registrato:', reg.scope))
+          .catch(err => console.error('SW errore:', err));
+      });
+    }
+  </script>
+
+  <!-- External Libs -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
 <body>
@@ -43,20 +59,46 @@
 
         <form id="login-form">
           <div class="form-group">
+            <label for="login-group">Gruppo Scout</label>
+            <select class="form-input" id="login-group" required>
+              <option value="" disabled selected>Caricamento gruppi...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password Gruppo</label>
+            <input type="password" class="form-input" id="login-password" placeholder="Inserisci password" required>
+          </div>
+          <div class="form-group">
             <label for="login-username">Il tuo nome</label>
-            <input
-              type="text"
-              class="form-input"
-              id="login-username"
-              placeholder="Es. Mario Rossi"
-              autocomplete="name"
-              required
-              minlength="2"
-            >
+            <input type="text" class="form-input" id="login-username" placeholder="Es. Mario Rossi" autocomplete="name" required minlength="2">
           </div>
           <button type="submit" class="btn btn--primary btn--full" id="btn-login">
-            🎯 Entra
+            🎯 Entra nel Gruppo
           </button>
+          <div style="text-align: center; margin-top: 16px;">
+            <a href="#" id="toggle-create-group" style="color: var(--primary); font-size: 0.9rem;">Vuoi creare un nuovo gruppo?</a>
+          </div>
+        </form>
+
+        <form id="create-group-form" class="hidden">
+          <div class="form-group">
+            <label for="create-group-name">Nome Nuovo Gruppo</label>
+            <input type="text" class="form-input" id="create-group-name" placeholder="Es. Roma 1" required minlength="2">
+          </div>
+          <div class="form-group">
+            <label for="create-group-password">Scegli una Password</label>
+            <input type="password" class="form-input" id="create-group-password" placeholder="Crea password" required minlength="4">
+          </div>
+          <div class="form-group">
+            <label for="create-username">Il tuo nome</label>
+            <input type="text" class="form-input" id="create-username" placeholder="Es. Mario Rossi" autocomplete="name" required minlength="2">
+          </div>
+          <button type="submit" class="btn btn--green btn--full" id="btn-create-group">
+            ✨ Crea e Entra
+          </button>
+          <div style="text-align: center; margin-top: 16px;">
+            <a href="#" id="toggle-login" style="color: var(--text-muted); font-size: 0.9rem;">Torna al login</a>
+          </div>
         </form>
       </div>
     </section>
@@ -75,6 +117,9 @@
         </div>
         <div class="app-header__user">
           <span id="header-username" class="app-header__username"></span>
+          <button class="btn btn--small btn--secondary master-only" id="btn-manage-units" title="Gestisci le unità del gruppo">
+            ⛺ <span class="hide-on-mobile">Gestione Unità</span>
+          </button>
           <button class="btn btn--small btn--secondary" id="btn-logout" title="Esci">
             ↩ Esci
           </button>
@@ -123,7 +168,7 @@
                   <option value="name">Alfabetico</option>
                   <option value="sex">Sesso</option>
                 </select>
-                <button class="btn btn--green btn--small master-only" id="btn-add-capo">
+                <button class="btn btn--green btn--small" id="btn-add-capo">
                   ✚ Aggiungi
                 </button>
               </div>
@@ -160,8 +205,17 @@
           >
         </div>
         <div class="board-header__right">
+          <button class="btn btn--secondary btn--small master-only" id="btn-manage-units-board" title="Gestisci le unità del gruppo" style="margin-right: 8px;">
+            ⛺ <span class="hide-on-mobile">Gestione Unità</span>
+          </button>
           <button class="btn btn--danger btn--small hidden" id="btn-delete-proposal" title="Elimina proposta">
             🗑
+          </button>
+          <button class="btn btn--secondary" id="btn-toggle-diff" title="Mostra differenze con organico attuale">
+            🔄 Turnover
+          </button>
+          <button class="btn btn--warning hidden" id="btn-lock-proposal" title="Congela la proposta (Definitiva)">
+            🔒 Congela
           </button>
           <button class="btn btn--primary" id="btn-save-proposal" title="Salva Proposta">
             💾 <span class="btn-save-text">Salva Proposta</span>

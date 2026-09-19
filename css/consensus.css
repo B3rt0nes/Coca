@@ -1,0 +1,195 @@
+/* ==========================================================================
+   CONSENSUS VIEW & PROJECTOR MODE
+   ========================================================================== */
+
+/* --- Projector Mode (Fullscreen) --- */
+body.projector-mode .navbar,
+body.projector-mode .sidebar,
+body.projector-mode .board-header,
+body.projector-mode .drawer {
+  display: none !important;
+}
+
+body.projector-mode .main-content {
+  margin-left: 0 !important; /* Override sidebar margin */
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  padding: 20px !important;
+  overflow: auto;
+}
+
+body.projector-mode .consensus-view {
+  max-width: 100%;
+}
+
+body.projector-mode {
+  background-color: #ffffff; /* Very bright for high contrast */
+  color: #000000;
+  font-size: 1.2rem;
+}
+
+/* --- Container --- */
+.consensus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.btn-projector {
+  background-color: #333;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-projector:hover {
+  background-color: #555;
+}
+
+/* --- Heatmap Section --- */
+.consensus-year-block {
+  margin-bottom: 48px;
+}
+
+.consensus-year-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #000;
+}
+
+.heatmap-container {
+  overflow-x: auto;
+  border: 2px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-bottom: 32px;
+}
+
+.heatmap-grid {
+  display: grid;
+  /* Columns: 1 for name, rest for units, 1 for unassigned */
+  /* We will set grid-template-columns dynamically via inline style, or default here */
+  min-width: 800px;
+}
+
+/* Header Cells */
+.heatmap-cell-header {
+  background-color: #f3f4f6;
+  font-weight: bold;
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 2px solid #333;
+  border-right: 1px solid #ccc;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* First Column (Capo Name) Sticky */
+.heatmap-cell-name {
+  background-color: #f3f4f6;
+  font-weight: bold;
+  padding: 10px 16px;
+  border-right: 2px solid #333;
+  border-bottom: 1px solid #ccc;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+/* Intersection of sticky headers */
+.heatmap-cell-header.heatmap-cell-name {
+  z-index: 20;
+  text-align: left;
+}
+
+/* Normal Cells */
+.heatmap-cell {
+  padding: 10px 4px;
+  text-align: center;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  font-size: 1.2rem;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.heatmap-cell:last-child, .heatmap-cell-header:last-child {
+  border-right: none;
+}
+
+/* Hover effect on cells */
+.heatmap-cell:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  z-index: 2;
+  border-radius: 4px;
+}
+
+/* --- Heatmap Colors --- */
+/* Scale of green/blue/yellow depending on intensity */
+.heat-0 { background-color: #ffffff; color: #e5e7eb; }
+.heat-1 { background-color: #d1fae5; color: #065f46; } /* very light green */
+.heat-2 { background-color: #a7f3d0; color: #064e3b; }
+.heat-3 { background-color: #6ee7b7; color: #022c22; }
+.heat-4 { background-color: #34d399; color: #000000; }
+.heat-5 { background-color: #10b981; color: #ffffff; }
+.heat-6 { background-color: #059669; color: #ffffff; }
+.heat-max { background-color: #047857; color: #ffffff; } /* darkest green */
+
+/* --- Unit Details (Formazioni) --- */
+.formations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.formation-card {
+  background: white;
+  border: 2px solid #333;
+  border-radius: 8px;
+  box-shadow: 4px 4px 0px #333; /* Brutalist/Clear shadows for projector */
+  padding: 16px;
+}
+
+.formation-card__title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 8px;
+  color: #111;
+}
+
+.formation-item {
+  margin-bottom: 12px;
+  padding: 8px;
+  background-color: #f9fafb;
+  border-left: 4px solid #10b981;
+  border-radius: 4px;
+}
+
+.formation-item__votes {
+  font-weight: bold;
+  color: #059669;
+  margin-bottom: 4px;
+  font-size: 1.1rem;
+}
+
+.formation-item__list {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: #333;
+}

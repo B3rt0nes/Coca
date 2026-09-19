@@ -14,7 +14,7 @@
 //    - Select your preferred region (e.g., europe-west1)
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyC1p1r77x0PayHI4xiIev_s_nR8NPNQ8G4",
@@ -26,9 +26,11 @@ const firebaseConfig = {
   measurementId: "G-DYXM9ZQ4C6"
 };
 
-// Initialize Firebase
+// Initialize Firebase with Offline Persistence (PWA)
 const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+const db = initializeFirestore(firebaseApp, {
+  localCache: persistentLocalCache()
+});
 
 export { db, firebaseApp };
 

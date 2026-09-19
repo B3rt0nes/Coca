@@ -1,16 +1,42 @@
-import { getYearLabel, UNITS, BRANCHES } from './board.js';
-import { getProposals } from './db.js';
+import { getYearLabel, UNITS } from './board.js';
 
-export async function loadConsensusView(container, capi) {
-  container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Caricamento aggregazione...</div>';
+export async function loadConsensusView(container, capi, proposals) {
+  // 1. Header with Projector Mode button
+  container.innerHTML = `
+    <div class="consensus-header">
+      <h2>Visione d'Insieme (Consensus)</h2>
+      <button class="btn-projector" id="btn-toggle-projector">
+        📽️ Modalità Proiettore
+      </button>
+    </div>
+    <div id="consensus-content"></div>
+  `;
+
+  // Projector Toggle Logic
+  document.getElementById('btn-toggle-projector').addEventListener('click', () => {
+    const isProjector = document.body.classList.toggle('projector-mode');
+    const btn = document.getElementById('btn-toggle-projector');
+    if (isProjector) {
+      btn.innerHTML = '❌ Esci da Proiettore';
+    } else {
+      btn.innerHTML = '📽️ Modalità Proiettore';
+    }
+  });
+
+  const content = document.getElementById('consensus-content');
+
+  // Filter out dummy capi
+  const realCapi = capi.filter(c => !c.isDummy);
   
-  const proposals = await getProposals();
-  
-  if (proposals.length === 0) {
-    container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Nessuna proposta trovata.</div>';
+  // Sort realCapi alphabetically by name for the rows
+  realCapi.sort((a, b) => a.nome.localeCompare(b.nome));
+
+  if (!proposals || proposals.length === 0) {
+    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Nessuna proposta salvata.</div>';
     return;
   }
-  
+
+  // Find max years across all proposals
   let maxYears = 1;
   proposals.forEach(p => {
     if (p.assegnazioni && Array.isArray(p.assegnazioni)) {
@@ -18,243 +44,168 @@ export async function loadConsensusView(container, capi) {
     }
   });
 
-  const yearsData = [];
+  const unitIds = Object.keys(UNITS);
+  
+  // 2. Loop through each year
   for (let y = 0; y < maxYears; y++) {
-    yearsData.push({
-      label: getYearLabel(y),
-      units: {}
+    // A. Heatmap Data Structure
+    const capoMap = {}; // capoId -> { unitId: count, 'non-assegnato': count }
+    realCapi.forEach(c => {
+      capoMap[c.id] = { 'non-assegnato': 0 };
+      unitIds.forEach(u => capoMap[c.id][u] = 0);
     });
-    for (const unitId of Object.keys(UNITS)) {
-      yearsData[y].units[unitId] = {}; 
-    }
-  }
 
-  proposals.forEach(p => {
-    if (!p.assegnazioni) return;
-    const isArray = Array.isArray(p.assegnazioni);
-    const assignArray = isArray ? p.assegnazioni : [{ units: p.assegnazioni }];
-    
-    assignArray.forEach((yearObj, y) => {
-      const units = yearObj.units || {};
-      for (const [unitId, assignments] of Object.entries(units)) {
-        if (!yearsData[y].units[unitId]) continue;
+    // B. Formations Data Structure
+    const formations = {}; // unitId -> { "Formation String": count }
+    unitIds.forEach(u => formations[u] = {});
+
+    let maxHeatCount = 0;
+    let validProposalsForYear = 0;
+
+    // C. Aggregate Data from Proposals
+    proposals.forEach(p => {
+      if (!p.assegnazioni) return;
+      const assignArray = Array.isArray(p.assegnazioni) ? p.assegnazioni : [{ units: p.assegnazioni }];
+      
+      // If this proposal doesn't have data for year 'y', skip
+      if (y >= assignArray.length) return;
+      
+      validProposalsForYear++;
+      const unitsData = assignArray[y].units || {};
+
+      // Track which capi are assigned anywhere in this year
+      const assignedCapiInProposal = new Set();
+
+      // Process assignments for Heatmap and Formations
+      unitIds.forEach(unitId => {
+        const assignments = unitsData[unitId] || [];
         
+        // --- For Heatmap ---
         assignments.forEach(a => {
           if (!a.capoId) return;
-          if (!yearsData[y].units[unitId][a.capoId]) {
-            yearsData[y].units[unitId][a.capoId] = {};
-          }
-          const role = a.ruolo || 'Senza ruolo';
-          yearsData[y].units[unitId][a.capoId][role] = (yearsData[y].units[unitId][a.capoId][role] || 0) + 1;
-        });
-      }
-    });
-  });
-
-  for (let y = 0; y < maxYears; y++) {
-    for (const unitId of Object.keys(UNITS)) {
-      const capoMap = yearsData[y].units[unitId];
-      const arr = Object.entries(capoMap).map(([capoId, roleCounts]) => {
-        let total = 0;
-        for (const count of Object.values(roleCounts)) total += count;
-        return { capoId, roleCounts, total };
-      });
-      // Sort by total votes desc
-      arr.sort((a, b) => b.total - a.total);
-      yearsData[y].units[unitId] = arr;
-    }
-  }
-
-  const capiMap = {};
-  capi.forEach(c => capiMap[c.id] = c);
-
-  container.innerHTML = '';
-
-  for (let y = 0; y < maxYears; y++) {
-    const yearDiv = document.createElement('div');
-    yearDiv.className = 'consensus-year';
-    
-    yearDiv.innerHTML = `
-      <div class="consensus-year__header" style="cursor: pointer; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span>📅</span>
-          <span>${yearsData[y].label}</span>
-        </div>
-        <div class="year-header__toggle">▼</div>
-      </div>
-    `;
-
-    const yearBody = document.createElement('div');
-    yearBody.className = 'consensus-year__body';
-
-    // Year toggle logic
-    const yearHeader = yearDiv.querySelector('.consensus-year__header');
-    yearHeader.addEventListener('click', () => {
-      const isHidden = yearBody.style.display === 'none';
-      yearBody.style.display = isHidden ? 'block' : 'none';
-      yearHeader.querySelector('.year-header__toggle').textContent = isHidden ? '▼' : '▶';
-    });
-
-    BRANCHES.forEach(branch => {
-      let hasVotes = false;
-      branch.units.forEach(unitId => {
-        if (yearsData[y].units[unitId] && yearsData[y].units[unitId].length > 0) hasVotes = true;
-      });
-
-      // Skip rendering empty branches
-      if (!hasVotes) return;
-
-      const branchSec = document.createElement('div');
-      branchSec.className = `branch-section ${branch.cssClass}`;
-      
-      branchSec.innerHTML = `
-        <div class="branch-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <span class="branch-header__icon">${branch.icon}</span>
-            ${branch.name}
-          </div>
-          <div class="branch-toggle">▼</div>
-        </div>
-        <div class="branch-units" style="display: flex; flex-direction: column;"></div>
-      `;
-
-      const branchUnits = branchSec.querySelector('.branch-units');
-      const branchHeader = branchSec.querySelector('.branch-header');
-      
-      // Branch toggle logic
-      branchHeader.addEventListener('click', () => {
-        const isHidden = branchUnits.style.display === 'none';
-        branchUnits.style.display = isHidden ? 'flex' : 'none';
-        branchHeader.querySelector('.branch-toggle').textContent = isHidden ? '▼' : '▶';
-      });
-
-      branch.units.forEach(unitId => {
-        const unit = UNITS[unitId];
-        const assignments = yearsData[y].units[unitId];
-        
-        // Skip empty units
-        if (!assignments || assignments.length === 0) return;
-
-        const rowDiv = document.createElement('div');
-        // Add drop-zone to reuse styles (border color) and logic
-        rowDiv.className = 'consensus-unit-row drop-zone';
-
-        rowDiv.innerHTML = `
-          <div class="consensus-unit-row__header drop-zone__header" style="cursor: pointer; margin-bottom: 0;">
-            <div>
-              ${unit.icon} ${unit.name} <span style="font-weight: 400; font-size: 0.85em; color: var(--text-muted); margin-left: 8px;">(${assignments.length} proposti)</span>
-            </div>
-            <div class="unit-toggle">▼</div>
-          </div>
-          <div class="consensus-unit-row__content drop-zone__cards">
-            <div class="consensus-main-roles">
-              <div class="consensus-section-title">👑 Capi Unità</div>
-              <div class="consensus-cards-grid" id="main-roles-${y}-${unitId}"></div>
-            </div>
-            <div class="consensus-other-roles">
-              <div class="consensus-section-title">👥 Altri Incarichi (Aiuti, AE, AS...)</div>
-              <div class="consensus-cards-flex" id="other-roles-${y}-${unitId}"></div>
-            </div>
-          </div>
-        `;
-        
-        // Unit toggle logic
-        const unitHeader = rowDiv.querySelector('.consensus-unit-row__header');
-        unitHeader.addEventListener('click', () => {
-          rowDiv.classList.toggle('drop-zone--collapsed');
-          const isCollapsed = rowDiv.classList.contains('drop-zone--collapsed');
-          unitHeader.querySelector('.unit-toggle').textContent = isCollapsed ? '▶' : '▼';
-        });
-        
-        branchUnits.appendChild(rowDiv);
-      });
-
-      yearBody.appendChild(branchSec);
-    });
-
-    yearDiv.appendChild(yearBody);
-    container.appendChild(yearDiv);
-
-    // Now populate the cards
-    BRANCHES.forEach(branch => {
-      branch.units.forEach(unitId => {
-        const unit = UNITS[unitId];
-        const assignments = yearsData[y].units[unitId];
-        if (!assignments || assignments.length === 0) return;
-
-        const mainContainer = document.getElementById(`main-roles-${y}-${unitId}`);
-        const otherContainer = document.getElementById(`other-roles-${y}-${unitId}`);
-        
-        const mainRolesList = unit.mainRoles || [];
-
-        assignments.forEach(a => {
-          const capo = capiMap[a.capoId];
-          if (!capo) return;
-
-          let topRole = '';
-          let maxRoleVotes = -1;
-          for (const [role, count] of Object.entries(a.roleCounts)) {
-            if (count > maxRoleVotes) {
-              maxRoleVotes = count;
-              topRole = role;
+          assignedCapiInProposal.add(a.capoId);
+          if (capoMap[a.capoId]) {
+            capoMap[a.capoId][unitId]++;
+            if (capoMap[a.capoId][unitId] > maxHeatCount) {
+              maxHeatCount = capoMap[a.capoId][unitId];
             }
           }
-          
-          const isMainRole = mainRolesList.includes(topRole);
-
-          const card = createConsensusCard(capo, a.roleCounts, a.total);
-          
-          if (isMainRole) {
-            mainContainer.appendChild(card);
-          } else {
-            otherContainer.appendChild(card);
-          }
         });
-        
-        if (mainContainer.children.length === 0) {
-          mainContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Nessuno proposto come Capo Unità</div>';
+
+        // --- For Formations ---
+        let formationString = 'Vuota';
+        if (assignments.length > 0) {
+          const members = assignments.map(a => {
+            const capo = capi.find(c => c.id === a.capoId);
+            const name = capo ? `${capo.nome} ${capo.cognome}`.trim() : 'Sconosciuto';
+            const role = a.ruolo || '';
+            return `${name} ${role ? `(${role})` : ''}`.trim();
+          });
+          // Sort alphabetically so permutations match
+          members.sort();
+          formationString = members.join(', ');
         }
-        if (otherContainer.children.length === 0) {
-          otherContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Nessun aiuto o altro incarico proposto, tutto solo soletto 😢</div>';
+        
+        formations[unitId][formationString] = (formations[unitId][formationString] || 0) + 1;
+      });
+
+      // Track unassigned for Heatmap
+      realCapi.forEach(c => {
+        if (!assignedCapiInProposal.has(c.id)) {
+          capoMap[c.id]['non-assegnato']++;
+          if (capoMap[c.id]['non-assegnato'] > maxHeatCount) {
+            maxHeatCount = capoMap[c.id]['non-assegnato'];
+          }
         }
       });
     });
+
+    if (validProposalsForYear === 0) continue;
+
+    // Build DOM for this Year
+    const yearBlock = document.createElement('div');
+    yearBlock.className = 'consensus-year-block';
+    
+    // Year Title
+    const yearTitle = document.createElement('div');
+    yearTitle.className = 'consensus-year-title';
+    yearTitle.textContent = `📅 ${getYearLabel(y)} (${validProposalsForYear} proposte)`;
+    yearBlock.appendChild(yearTitle);
+
+    // --- Section 1: Heatmap ---
+    const heatmapContainer = document.createElement('div');
+    heatmapContainer.className = 'heatmap-container';
+    
+    // Calculate columns: Capo + each unit + Unassigned
+    const totalCols = 1 + unitIds.length + 1;
+    const heatmapGrid = document.createElement('div');
+    heatmapGrid.className = 'heatmap-grid';
+    heatmapGrid.style.gridTemplateColumns = `220px repeat(${unitIds.length + 1}, minmax(100px, 1fr))`;
+
+    // Headers
+    heatmapGrid.innerHTML += `<div class="heatmap-cell-header heatmap-cell-name">Capo</div>`;
+    unitIds.forEach(u => {
+      heatmapGrid.innerHTML += `<div class="heatmap-cell-header">${UNITS[u].name}</div>`;
+    });
+    heatmapGrid.innerHTML += `<div class="heatmap-cell-header">Non Assegnato</div>`;
+
+    // Rows
+    const getHeatClass = (count, max) => {
+      if (count === 0) return 'heat-0';
+      if (count === max && max > 0) return 'heat-max';
+      const step = Math.ceil((count / max) * 5); // 1 to 5
+      return `heat-${step}`;
+    };
+
+    realCapi.forEach(capo => {
+      heatmapGrid.innerHTML += `<div class="heatmap-cell-name">${capo.nome} ${capo.cognome}</div>`;
+      
+      unitIds.forEach(u => {
+        const count = capoMap[capo.id][u];
+        const heatClass = getHeatClass(count, maxHeatCount);
+        heatmapGrid.innerHTML += `<div class="heatmap-cell ${heatClass}">${count > 0 ? count : ''}</div>`;
+      });
+      
+      const unassignedCount = capoMap[capo.id]['non-assegnato'];
+      const unassignedClass = getHeatClass(unassignedCount, maxHeatCount);
+      heatmapGrid.innerHTML += `<div class="heatmap-cell ${unassignedClass}">${unassignedCount > 0 ? unassignedCount : ''}</div>`;
+    });
+
+    heatmapContainer.appendChild(heatmapGrid);
+    yearBlock.appendChild(heatmapContainer);
+
+    // --- Section 2: Formations (Unit Details) ---
+    const formationsGrid = document.createElement('div');
+    formationsGrid.className = 'formations-grid';
+
+    unitIds.forEach(u => {
+      const card = document.createElement('div');
+      card.className = 'formation-card';
+      
+      card.innerHTML = `<div class="formation-card__title">${UNITS[u].name}</div>`;
+      
+      // Sort formations by count desc
+      const sortedFormations = Object.entries(formations[u])
+        .sort((a, b) => b[1] - a[1]); // [1] is count
+
+      if (sortedFormations.length === 0) {
+        card.innerHTML += `<div style="color: #666; font-style: italic;">Nessun dato</div>`;
+      } else {
+        // Show top 3 or all if few
+        sortedFormations.slice(0, 4).forEach(([formationStr, count], idx) => {
+          card.innerHTML += `
+            <div class="formation-item">
+              <div class="formation-item__votes">${count} preferenz${count === 1 ? 'a' : 'e'}</div>
+              <div class="formation-item__list">${formationStr}</div>
+            </div>
+          `;
+        });
+      }
+
+      formationsGrid.appendChild(card);
+    });
+
+    yearBlock.appendChild(formationsGrid);
+    content.appendChild(yearBlock);
   }
-}
-
-function createConsensusCard(capo, roleCounts, total) {
-  const card = document.createElement('div');
-  card.className = 'card card--consensus';
-  card.style.cursor = 'default';
-  
-  const breakdown = Object.entries(roleCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([role, count]) => `<b>${role}</b>: ${count}`)
-    .join('<br>');
-
-  let avatarHTML = '';
-  if (capo.fotoUrl) {
-    avatarHTML = `<img src="${capo.fotoUrl}" class="card__photo" alt="Foto">`;
-  } else {
-    const sexClass = capo.sesso === 'M' ? 'card__sex-icon--m' : 'card__sex-icon--f';
-    const sexSymbol = capo.sesso === 'M' ? '♂' : '♀';
-    avatarHTML = `<span class="card__sex-icon ${sexClass}">${sexSymbol}</span>`;
-  }
-
-  const displayNameHTML = capo.soprannome
-    ? `<span style="font-weight: 700;">${capo.soprannome}</span>`
-    : `<span style="font-weight: 700;">${capo.nome}${capo.hasDuplicateName ? ` ${capo.cognome}` : ''}</span>`;
-
-  card.innerHTML = `
-    <div class="card__header" style="align-items: flex-start; gap: 8px;">
-      ${avatarHTML}
-      <div class="card__name" style="line-height: 1.2; flex: 1;">${displayNameHTML}</div>
-      <span class="badge badge--consensus" style="background: var(--primary-main); color: white; padding: 2px 6px; font-size: 0.85rem; border-radius: 12px; margin-left: auto;">${total}</span>
-    </div>
-    <div class="card__roles-breakdown" style="font-size: 0.8rem; margin-top: 8px; color: var(--text-muted); background: rgba(0,0,0,0.03); padding: 6px; border-radius: 4px; border-left: 3px solid var(--primary-main);">
-      ${breakdown}
-    </div>
-  `;
-  
-  return card;
 }

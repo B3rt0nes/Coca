@@ -1,30 +1,42 @@
 // ============================================
-// CO.CA. — Authentication (Username only)
+// CO.CA. — Authentication (Username & Group)
 // ============================================
 
-const STORAGE_KEY = 'coca_username';
+const STORAGE_KEY_USER = 'coca_username';
+const STORAGE_KEY_GROUP = 'coca_groupname';
 
 /**
  * Get current username from localStorage
  * @returns {string|null}
  */
 export function getUsername() {
-  return localStorage.getItem(STORAGE_KEY);
+  return localStorage.getItem(STORAGE_KEY_USER);
 }
 
 /**
- * Set username in localStorage
- * @param {string} username
+ * Get current groupname from localStorage
+ * @returns {string|null}
  */
-export function setUsername(username) {
-  localStorage.setItem(STORAGE_KEY, username.trim());
+export function getGroupName() {
+  return localStorage.getItem(STORAGE_KEY_GROUP);
 }
 
 /**
- * Remove username (logout)
+ * Set username and group in localStorage
+ * @param {string} username
+ * @param {string} groupName
+ */
+export function setAuth(username, groupName) {
+  localStorage.setItem(STORAGE_KEY_USER, username.trim());
+  localStorage.setItem(STORAGE_KEY_GROUP, groupName.trim());
+}
+
+/**
+ * Remove auth (logout)
  */
 export function logout() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY_USER);
+  localStorage.removeItem(STORAGE_KEY_GROUP);
 }
 
 /**
@@ -33,7 +45,8 @@ export function logout() {
  */
 export function isLoggedIn() {
   const username = getUsername();
-  return username !== null && username.trim() !== '';
+  const groupName = getGroupName();
+  return username !== null && username.trim() !== '' && groupName !== null && groupName.trim() !== '';
 }
 
 /**
