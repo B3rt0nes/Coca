@@ -292,3 +292,4 @@ export async function deleteProposal(id) {
   const group = getGroupName();
   await deleteDoc(doc(db, 'groups', group, 'proposte', id));
 }
+

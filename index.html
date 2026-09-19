@@ -186,6 +186,76 @@
 
 
     <!-- ═══════════════════════════════════
+         UNITS MANAGEMENT VIEW
+         ═══════════════════════════════════ -->
+    <section class="view" id="units-view">
+
+      <!-- Header -->
+      <header class="board-header">
+        <div class="board-header__left">
+          <button class="board-header__back" id="btn-units-back" title="Torna alla Dashboard">
+            ← <span class="btn-back-text">Indietro</span>
+          </button>
+          <div style="font-family: var(--font-heading); font-weight: 700; font-size: 1.1rem;">
+            ⛺ Gestione Unità
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="units-page">
+
+        <!-- Intro -->
+        <div class="units-page__intro">
+          <h2>Configura le Unità del tuo Gruppo</h2>
+          <p>Qui puoi aggiungere, rinominare o rimuovere le unità per l'anno scout a venire.
+            Le modifiche saranno applicate a tutte le nuove proposte di staff.</p>
+        </div>
+
+        <!-- Current Units Grid -->
+        <div class="units-page__grid" id="units-page-grid">
+          <!-- Rendered dynamically by JS -->
+        </div>
+
+        <!-- Add Unit Form -->
+        <div class="units-page__add-section">
+          <h3>Aggiungi una nuova unità</h3>
+          <form id="units-page-add-form" class="units-page__add-form">
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+              <label for="units-page-type">Tipo di Unità</label>
+              <select class="form-input" id="units-page-type" required>
+                <option value="" disabled selected>Seleziona tipo...</option>
+                <option value="branco">🐺 Branco (L/C)</option>
+                <option value="cerchio">🌸 Cerchio (L/C)</option>
+                <option value="reparto">⛺ Reparto (E/G)</option>
+                <option value="noviziato">🧭 Noviziato (R/S)</option>
+                <option value="clan">🔥 Clan/Fuoco (R/S)</option>
+                <option value="coca">🏛️ Co.Ca.</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 2; min-width: 200px;">
+              <label for="units-page-name">Nome dell'Unità</label>
+              <input type="text" class="form-input" id="units-page-name" placeholder="Es. Branco Seeonee, Reparto Sirio..." required minlength="2">
+            </div>
+            <button type="submit" class="btn btn--green" style="align-self: flex-end; height: 42px;">
+              ✚ Aggiungi
+            </button>
+          </form>
+        </div>
+
+        <!-- Save Bar -->
+        <div class="units-page__save-bar">
+          <span id="units-page-status" class="units-page__status"></span>
+          <button class="btn btn--primary" id="btn-units-save">
+            💾 Salva Configurazione Unità
+          </button>
+        </div>
+
+      </main>
+    </section>
+
+
+    <!-- ═══════════════════════════════════
          BOARD VIEW (Tabellone Drag & Drop)
          ═══════════════════════════════════ -->
     <section class="view board-view" id="board-view">

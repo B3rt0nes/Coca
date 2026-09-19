@@ -10,9 +10,30 @@ import { createCardElement } from './deck.js';
 // ══════════════════════════════════════════
 
 export let UNITS = {};
+export let BRANCHES = [];
+
+export const DEFAULT_UNITS = {
+  'branco-1': { type: 'branco', name: 'Branco' },
+  'cerchio-1': { type: 'cerchio', name: 'Cerchio' },
+  'reparto-1': { type: 'reparto', name: 'Reparto' },
+  'noviziato': { type: 'noviziato', name: 'Noviziato' },
+  'clan-1': { type: 'clan', name: 'Clan' },
+  'coca': { type: 'coca', name: 'Co.Ca.' }
+};
 
 export function setUnits(dbUnits) {
+  if (!dbUnits) {
+    dbUnits = DEFAULT_UNITS;
+  }
+
   const newUnits = {};
+  const branchMap = {
+    'LC': { id: 'LC', name: 'Branca L/C', icon: '🐺', cssClass: 'branch-section--lc', units: [] },
+    'EG': { id: 'EG', name: 'Branca E/G', icon: '⚜️', cssClass: 'branch-section--eg', units: [] },
+    'RS': { id: 'RS', name: 'Branca R/S', icon: '🔥', cssClass: 'branch-section--rs', units: [] },
+    'COCA': { id: 'COCA', name: 'Comunità Capi', icon: '🏛️', cssClass: 'branch-section--coca', units: [] }
+  };
+
   for (const [id, config] of Object.entries(dbUnits)) {
     const template = UNIT_TEMPLATES[config.type];
     if (template) {
@@ -23,9 +44,22 @@ export function setUnits(dbUnits) {
         roles: template.roles,
         mainRoles: template.mainRoles
       };
+      
+      if (branchMap[template.branch]) {
+        branchMap[template.branch].units.push(id);
+      }
     }
   }
+
   UNITS = newUnits;
+  
+  // Rebuild BRANCHES array, only keeping branches that have units
+  BRANCHES = [
+    branchMap['LC'],
+    branchMap['EG'],
+    branchMap['RS'],
+    branchMap['COCA']
+  ].filter(b => b.units.length > 0);
 }
 
 export const UNIT_TEMPLATES = {
@@ -84,38 +118,6 @@ export const UNIT_TEMPLATES = {
     ]
   }
 };
-
-// Branch groupings for display
-export const BRANCHES = [
-  {
-    id: 'LC',
-    name: 'Branca L/C',
-    icon: '🐺',
-    cssClass: 'branch-section--lc',
-    units: ['branco-s-francesco', 'cerchio-s-chiara']
-  },
-  {
-    id: 'EG',
-    name: 'Branca E/G',
-    icon: '⚜️',
-    cssClass: 'branch-section--eg',
-    units: ['reparto-apollo', 'reparto-artemide']
-  },
-  {
-    id: 'RS',
-    name: 'Branca R/S',
-    icon: '🔥',
-    cssClass: 'branch-section--rs',
-    units: ['noviziato', 'clan-boanerghes']
-  },
-  {
-    id: 'COCA',
-    name: 'Co.Ca.',
-    icon: '🏛️',
-    cssClass: 'branch-section--coca',
-    units: ['coca']
-  }
-];
 
 
 // ══════════════════════════════════════════

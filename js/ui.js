@@ -558,7 +558,14 @@ export async function showUnitsModal() {
   setLoading(true);
   let units = {};
   try {
-    units = await getGroupUnits();
+    const fetchedUnits = await getGroupUnits();
+    if (!fetchedUnits) {
+      // If null, use the default units as a starting point
+      const board = await import('./board.js');
+      units = JSON.parse(JSON.stringify(board.DEFAULT_UNITS));
+    } else {
+      units = fetchedUnits;
+    }
   } catch(e) {
     console.error(e);
     showToast("Errore caricamento unità", "error");

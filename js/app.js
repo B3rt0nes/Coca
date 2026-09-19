@@ -6,7 +6,7 @@
 import { getUsername, setAuth, logout, isLoggedIn, isMasterUser, getGroupName } from './auth.js';
 import { addCapo, updateCapo, getCapi, deleteCapo, onCapiChange, saveProposal, getProposals, getProposal, deleteProposal, onProposalsChange, getGroups, verifyGroupPassword, createGroup, getGroupUnits, saveGroupUnits } from './db.js';
 import { renderDeck, renderDeckPreview, createCardElement } from './deck.js';
-import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, setUnits, createRoleSelect, getYearLabel } from './board.js';
+import { renderBoard, collectAssignments, loadAssignments, updateMultiIncarico, UNITS, setUnits, createRoleSelect, getYearLabel, UNIT_TEMPLATES } from './board.js';
 import { initDragDrop, destroyDragDrop, reattachRoleListeners } from './dragdrop.js';
 import { validateProposal } from './validation.js';
 import { showToast, showModal, hideModal, showConfirm, showWarningConfirm, showAddCapoModal, setLoading } from './ui.js';
@@ -63,7 +63,7 @@ function navigate(hash) {
   window.location.hash = hash;
 }
 
-function handleRoute() {
+async function handleRoute() {
   const hash = window.location.hash || '#login';
   const parts = hash.split('/');
   const route = parts[0];
@@ -81,6 +81,19 @@ function handleRoute() {
   if (!isLoggedIn() && route !== '#login') {
     navigate('#login');
     return;
+  }
+  
+  if (isLoggedIn()) {
+    try {
+      const dbModule = await import('./db.js');
+      const boardModule = await import('./board.js');
+      if (Object.keys(boardModule.UNITS).length === 0) {
+        const units = await dbModule.getGroupUnits();
+        boardModule.setUnits(units);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   switch (route) {
@@ -111,11 +124,7 @@ function handleRoute() {
 
       showView('dashboard-view');
       updateDashboardHeader();
-      import('./db.js').then(async (dbModule) => {
-        const units = await dbModule.getGroupUnits();
-        import('./board.js').then(b => b.setUnits(units));
-        loadDashboard();
-      });
+      loadDashboard();
       break;
 
     case '#proposta':
@@ -141,13 +150,23 @@ function handleRoute() {
         return;
       }
       showView('consensus-view');
-      import('./db.js').then(async (dbModule) => {
-        const units = await dbModule.getGroupUnits();
-        import('./board.js').then(b => b.setUnits(units));
-        import('./consensus.js').then(module => {
-          module.loadConsensusView(document.getElementById('consensus-grid'), AppState.capi, AppState.proposals);
-        });
+      import('./consensus.js').then(module => {
+        module.loadConsensusView(document.getElementById('consensus-grid'), AppState.capi, AppState.proposals);
       });
+      break;
+
+    case '#units':
+      if (!isLoggedIn()) {
+        navigate('#login');
+        return;
+      }
+      if (!isMasterUser()) {
+        showToast('Accesso riservato al Master', 'error');
+        navigate('#dashboard');
+        return;
+      }
+      showView('units-view');
+      loadUnitsPage();
       break;
 
     default:
@@ -374,10 +393,10 @@ function setupDashboardEvents() {
     });
   });
 
-  // Manage Units Button
+  // Manage Units Button → navigate to full page
   document.getElementById('btn-manage-units')?.addEventListener('click', () => {
     if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
-    import('./ui.js').then(({ showUnitsModal }) => showUnitsModal());
+    navigate('#units');
   });
 
   // Sort dropdown
@@ -873,8 +892,8 @@ function setupBoardEvents() {
     });
   }
 
-  // Manage Units Button from Board
-  document.getElementById('btn-manage-units-board')?.addEventListener('click', () => {
+  // Manage Units button in header (navbar)
+  document.getElementById('btn-manage-units')?.addEventListener('click', () => {
     if (!AppState.isMaster) { showToast('Azione riservata al Master', 'error'); return; }
     import('./ui.js').then(({ showUnitsModal }) => showUnitsModal());
   });
@@ -1063,6 +1082,166 @@ async function handleSaveProposal(isLocked = false) {
 
 
 // ══════════════════════════════════════════
+// UNITS PAGE
+// ══════════════════════════════════════════
+
+// In-memory copy of units being edited on the page
+let unitsPageData = {};
+
+async function loadUnitsPage() {
+  setLoading(true);
+  try {
+    const units = await getGroupUnits();
+    // Deep clone so edits don't mutate the live config until save
+    unitsPageData = JSON.parse(JSON.stringify(units || {}));
+    renderUnitsGrid();
+    document.getElementById('units-page-status').textContent = '';
+  } catch (err) {
+    console.error('Error loading units:', err);
+    showToast('Errore nel caricamento delle unità', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderUnitsGrid() {
+  const grid = document.getElementById('units-page-grid');
+  if (!grid) return;
+
+  if (Object.keys(unitsPageData).length === 0) {
+    grid.innerHTML = `
+      <div class="units-page__empty">
+        <p>Nessuna unità configurata.</p>
+        <p style="color:var(--text-muted); font-size:0.9rem;">Usa il form qui sotto per aggiungere la prima unità del tuo gruppo.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Group by branch
+  const branchOrder = ['LC', 'EG', 'RS', 'COCA'];
+  const branchLabels = {
+    'LC': { name: 'Branca L/C', icon: '🐺', color: 'var(--branch-lc)' },
+    'EG': { name: 'Branca E/G', icon: '⚜️', color: 'var(--branch-eg)' },
+    'RS': { name: 'Branca R/S', icon: '🔥', color: 'var(--branch-rs)' },
+    'COCA': { name: 'Comunità Capi', icon: '🏛️', color: 'var(--branch-coca)' }
+  };
+
+  const grouped = {};
+  for (const [id, u] of Object.entries(unitsPageData)) {
+    const tpl = UNIT_TEMPLATES[u.type];
+    const branch = tpl ? tpl.branch : 'COCA';
+    if (!grouped[branch]) grouped[branch] = [];
+    grouped[branch].push({ id, ...u, icon: tpl ? tpl.icon : '⛺' });
+  }
+
+  let html = '';
+  for (const branch of branchOrder) {
+    if (!grouped[branch]) continue;
+    const info = branchLabels[branch];
+    html += `
+      <div class="units-branch-group">
+        <div class="units-branch-group__header" style="border-left: 3px solid ${info.color}; padding-left: 12px;">
+          <span style="font-size: 1.3rem;">${info.icon}</span>
+          <h3 style="margin: 0; font-size: 1rem;">${info.name}</h3>
+        </div>
+        <div class="units-branch-group__cards">
+    `;
+    for (const unit of grouped[branch]) {
+      html += `
+        <div class="unit-card">
+          <div class="unit-card__icon">${unit.icon}</div>
+          <div class="unit-card__info">
+            <div class="unit-card__name">${unit.name}</div>
+            <div class="unit-card__type">${unit.type}</div>
+          </div>
+          <button class="btn btn--danger btn--small unit-card__delete" data-unit-id="${unit.id}" title="Rimuovi unità">
+            🗑
+          </button>
+        </div>
+      `;
+    }
+    html += `</div></div>`;
+  }
+
+  grid.innerHTML = html;
+
+  // Bind delete buttons
+  grid.querySelectorAll('.unit-card__delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const unitId = btn.dataset.unitId;
+      const unitName = unitsPageData[unitId]?.name || unitId;
+      const confirmed = await showWarningConfirm(
+        'Rimuovi Unità',
+        `Sei sicuro di voler rimuovere "${unitName}"?\n\nI capi assegnati a questa unità nelle proposte esistenti rimarranno, ma l'unità non sarà più disponibile per nuove proposte.`
+      );
+      if (confirmed) {
+        delete unitsPageData[unitId];
+        renderUnitsGrid();
+        document.getElementById('units-page-status').textContent = '⚠ Modifiche non salvate';
+        document.getElementById('units-page-status').style.color = 'var(--accent-gold)';
+      }
+    });
+  });
+}
+
+
+
+function setupUnitsEvents() {
+  // Back button
+  document.getElementById('btn-units-back')?.addEventListener('click', () => {
+    navigate('#dashboard');
+  });
+
+  // Add unit form
+  document.getElementById('units-page-add-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const typeSelect = document.getElementById('units-page-type');
+    const nameInput = document.getElementById('units-page-name');
+    const type = typeSelect.value;
+    const name = nameInput.value.trim();
+
+    if (!type || !name) {
+      showToast('Seleziona un tipo e inserisci un nome', 'warning');
+      return;
+    }
+
+    const newId = `${type}-${Date.now()}`;
+    unitsPageData[newId] = { type, name };
+
+    renderUnitsGrid();
+    nameInput.value = '';
+    typeSelect.selectedIndex = 0;
+    showToast(`"${name}" aggiunta!`, 'success', 2000);
+    document.getElementById('units-page-status').textContent = '⚠ Modifiche non salvate';
+    document.getElementById('units-page-status').style.color = 'var(--accent-gold)';
+  });
+
+  // Save button
+  document.getElementById('btn-units-save')?.addEventListener('click', async () => {
+    if (Object.keys(unitsPageData).length === 0) {
+      showToast('Devi avere almeno un\'unità', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await saveGroupUnits(unitsPageData);
+      setUnits(unitsPageData);
+      showToast('Configurazione unità salvata! ✓', 'success');
+      document.getElementById('units-page-status').textContent = '✓ Salvato';
+      document.getElementById('units-page-status').style.color = 'var(--accent-green)';
+    } catch (err) {
+      console.error('Error saving units:', err);
+      showToast('Errore nel salvataggio', 'error');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
+
+// ══════════════════════════════════════════
 // INITIALIZATION
 // ══════════════════════════════════════════
 
@@ -1070,6 +1249,7 @@ function init() {
   setupLogin();
   setupDashboardEvents();
   setupBoardEvents();
+  setupUnitsEvents();
 
   // Listen for route changes
   window.addEventListener('hashchange', handleRoute);
