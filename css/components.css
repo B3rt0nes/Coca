@@ -674,6 +674,8 @@
   font-size: 0.95rem;
   margin-bottom: var(--sp-6);
   line-height: 1.6;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .modal__body ul {
